@@ -6,7 +6,7 @@ pub enum ClientState {
     /// Initial state, waiting for the client to send a team name.
     Authenticating,
     /// Client is an AI (drone) currently in the game.
-    InGame,
+    InGame(usize),
     /// Client is a graphical interface.
     Graphic,
 }

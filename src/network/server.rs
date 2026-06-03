@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use crate::config::ServerConfig;
 use crate::network::client::{Client, ClientState};
+use crate::game::world::World;
 
 /// Token used to identify the server listener in the event loop.
 const SERVER_TOKEN: Token = Token(0);
@@ -21,18 +22,27 @@ pub struct Server {
     clients: HashMap<Token, Client>,
     /// Counter used to generate the next unique Token for a new client.
     next_token: usize,
+    /// The game world of Trantor.
+    world: World,
 }
 
 impl Server {
     /// Creates a new Server instance based on the provided configuration.
     pub fn new(config: ServerConfig) -> io::Result<Self> {
         let poll = Poll::new()?;
+        let world = World::new(
+            config.width,
+            config.height,
+            config.teams.clone(),
+            config.clients_nb,
+        );
 
         Ok(Self {
             config,
             poll,
             clients: HashMap::new(),
             next_token: 1,
+            world,
         })
     }
 
@@ -85,18 +95,26 @@ impl Server {
     /// Reads data from a client's socket into its input buffer.
     fn handle_read(&mut self, token: Token) {
         let mut closed = false;
+        let mut player_to_remove = None;
+
         if let Some(client) = self.clients.get_mut(&token) {
             let mut buf = [0; 1024];
             loop {
                 match client.stream.read(&mut buf) {
                     Ok(0) => {
                         closed = true;
+                        if let ClientState::InGame(id) = client.state {
+                            player_to_remove = Some(id);
+                        }
                         break;
                     }
                     Ok(n) => client.buffer_in.extend_from_slice(&buf[..n]),
                     Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => break,
                     Err(_) => {
                         closed = true;
+                        if let ClientState::InGame(id) = client.state {
+                            player_to_remove = Some(id);
+                        }
                         break;
                     }
                 }
@@ -105,6 +123,9 @@ impl Server {
 
         if closed {
             self.clients.remove(&token);
+            if let Some(id) = player_to_remove {
+                self.world.remove_player(id);
+            }
             return;
         }
 
@@ -122,10 +143,12 @@ impl Server {
                     ClientState::Authenticating => {
                         if line_str == "GRAPHIC" {
                             client.state = ClientState::Graphic;
-                        } else if self.config.teams.contains(&line_str) {
-                            client.state = ClientState::InGame;
+                        } else if let Some(player_id) = self.world.add_player(&line_str) {
+                            client.state = ClientState::InGame(player_id);
                             client.team_name = Some(line_str.clone());
-                            let msg = format!("{}\n{} {}\n", self.config.clients_nb, self.config.width, self.config.height);
+                            
+                            let slots = self.world.team_slots.get(&line_str).unwrap_or(&0);
+                            let msg = format!("{}\n{} {}\n", slots, self.config.width, self.config.height);
                             client.buffer_out.extend_from_slice(msg.as_bytes());
                         } else {
                             client.buffer_out.extend_from_slice(b"ko\n");
