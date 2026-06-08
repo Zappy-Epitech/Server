@@ -3,11 +3,12 @@ use mio::{Events, Interest, Poll, Token};
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
 use std::net::SocketAddr;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::config::ServerConfig;
 use crate::network::client::{Client, ClientState};
 use crate::game::world::World;
+use crate::protocol::{Command, PendingCommand};
 
 /// Token used to identify the server listener in the event loop.
 const SERVER_TOKEN: Token = Token(0);
@@ -47,9 +48,6 @@ impl Server {
     }
 
     /// Starts the main event loop of the server.
-    /// 
-    /// This method will block and handle new connections, incoming data,
-    /// and outgoing data until an error occurs.
     pub fn run(&mut self) -> io::Result<()> {
         let addr: SocketAddr = format!("0.0.0.0:{}", self.config.port).parse().unwrap();
         let mut listener = TcpListener::bind(addr)?;
@@ -59,7 +57,8 @@ impl Server {
         let mut events = Events::with_capacity(128);
 
         loop {
-            self.poll.poll(&mut events, Some(Duration::from_millis(100)))?;
+            let timeout = self.get_next_timeout();
+            self.poll.poll(&mut events, Some(timeout))?;
 
             for event in events.iter() {
                 match event.token() {
@@ -87,6 +86,71 @@ impl Server {
                             self.handle_write(token);
                         }
                     }
+                }
+            }
+            self.update_game();
+        }
+    }
+
+    fn get_next_timeout(&self) -> Duration {
+        let now = Instant::now();
+        let mut min_time = now + Duration::from_millis(100);
+
+        for player in self.world.players.values() {
+            if let Some(cmd) = player.commands.front() {
+                if cmd.end_time < min_time {
+                    min_time = cmd.end_time;
+                }
+            }
+            if player.death_time < min_time {
+                min_time = player.death_time;
+            }
+        }
+
+        min_time.saturating_duration_since(now)
+    }
+
+    fn update_game(&mut self) {
+        let now = Instant::now();
+        let mut dead_players = Vec::new();
+        let mut commands_to_execute = Vec::new();
+
+        for (token, client) in self.clients.iter_mut() {
+            if let ClientState::InGame(id) = client.state {
+                if let Some(player) = self.world.players.get_mut(&id) {
+                    if now >= player.death_time {
+                        client.buffer_out.extend_from_slice(b"dead\n");
+                        dead_players.push((*token, id));
+                        continue;
+                    }
+
+                    while let Some(cmd) = player.commands.front() {
+                        if now >= cmd.end_time {
+                            let pending = player.commands.pop_front().unwrap();
+                            commands_to_execute.push((*token, pending.command));
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        for (token, cmd) in commands_to_execute {
+            self.execute_command(token, cmd);
+        }
+
+        for (token, id) in dead_players {
+            self.world.remove_player(id);
+            self.clients.remove(&token);
+        }
+    }
+
+    fn execute_command(&mut self, token: Token, cmd: Command) {
+        if let Some(client) = self.clients.get_mut(&token) {
+            match cmd {
+                _ => {
+                    client.buffer_out.extend_from_slice(b"ok\n");
                 }
             }
         }
@@ -134,19 +198,23 @@ impl Server {
 
     /// Processes the input buffer of a client, extracting complete lines (commands).
     fn process_buffer(&mut self, token: Token) {
+        let mut lines = Vec::new();
         if let Some(client) = self.clients.get_mut(&token) {
             while let Some(pos) = client.buffer_in.iter().position(|&b| b == b'\n') {
                 let line = client.buffer_in.drain(..pos + 1).collect::<Vec<u8>>();
-                let line_str = String::from_utf8_lossy(&line).trim().to_string();
+                lines.push(String::from_utf8_lossy(&line).trim().to_string());
+            }
+        }
 
+        for line_str in lines {
+            if let Some(client) = self.clients.get_mut(&token) {
                 match client.state {
                     ClientState::Authenticating => {
                         if line_str == "GRAPHIC" {
                             client.state = ClientState::Graphic;
-                        } else if let Some(player_id) = self.world.add_player(&line_str) {
+                        } else if let Some(player_id) = self.world.add_player(&line_str, self.config.freq) {
                             client.state = ClientState::InGame(player_id);
                             client.team_name = Some(line_str.clone());
-                            
                             let slots = self.world.team_slots.get(&line_str).unwrap_or(&0);
                             let msg = format!("{}\n{} {}\n", slots, self.config.width, self.config.height);
                             client.buffer_out.extend_from_slice(msg.as_bytes());
@@ -154,8 +222,22 @@ impl Server {
                             client.buffer_out.extend_from_slice(b"ko\n");
                         }
                     }
-                    _ => {
+                    ClientState::InGame(id) => {
+                        if let Some(cmd) = Command::from_str(&line_str) {
+                            if let Some(player) = self.world.players.get_mut(&id) {
+                                if player.commands.len() < 10 {
+                                    let duration = Duration::from_secs_f64(cmd.duration() as f64 / self.config.freq as f64);
+                                    let start = player.last_command_end.max(Instant::now());
+                                    let end = start + duration;
+                                    player.last_command_end = end;
+                                    player.commands.push_back(PendingCommand { command: cmd, end_time: end });
+                                }
+                            }
+                        } else {
+                            client.buffer_out.extend_from_slice(b"ko\n");
+                        }
                     }
+                    _ => {}
                 }
             }
         }

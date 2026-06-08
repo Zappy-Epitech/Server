@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use rand::Rng;
 use crate::game::player::{Player, Direction};
 
-/// The different types of resources available on Trantor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Resource {
     Food,
@@ -15,7 +14,6 @@ pub enum Resource {
 }
 
 impl Resource {
-    /// Returns all types of resources.
     pub fn all() -> &'static [Resource] {
         &[
             Resource::Food,
@@ -28,7 +26,6 @@ impl Resource {
         ]
     }
 
-    /// Returns the density for a given resource.
     pub fn density(self) -> f64 {
         match self {
             Resource::Food => 0.5,
@@ -42,15 +39,12 @@ impl Resource {
     }
 }
 
-/// A single tile on the world map.
 #[derive(Debug, Clone)]
 pub struct Tile {
-    /// Resources present on this tile.
     pub resources: HashMap<Resource, u32>,
 }
 
 impl Tile {
-    /// Creates a new empty tile.
     pub fn new() -> Self {
         Self {
             resources: HashMap::new(),
@@ -58,24 +52,16 @@ impl Tile {
     }
 }
 
-/// The world of Trantor, a 2D grid with wrap-around logic.
 pub struct World {
-    /// Width of the map.
     pub width: u32,
-    /// Height of the map.
     pub height: u32,
-    /// The grid of tiles.
     pub tiles: Vec<Tile>,
-    /// All players currently in the world, indexed by their ID.
     pub players: HashMap<usize, Player>,
-    /// Number of available slots for each team.
     pub team_slots: HashMap<String, usize>,
-    /// Counter for generating unique player IDs.
     next_player_id: usize,
 }
 
 impl World {
-    /// Creates a new world with the given dimensions and populates it with resources.
     pub fn new(width: u32, height: u32, teams: Vec<String>, clients_per_team: usize) -> Self {
         let mut team_slots = HashMap::new();
         for team in teams {
@@ -94,8 +80,7 @@ impl World {
         world
     }
 
-    /// Adds a new player to the world for the specified team if a slot is available.
-    pub fn add_player(&mut self, team_name: &str) -> Option<usize> {
+    pub fn add_player(&mut self, team_name: &str, freq: u32) -> Option<usize> {
         let slots = self.team_slots.get_mut(team_name)?;
         if *slots == 0 {
             return None;
@@ -115,12 +100,11 @@ impl World {
             _ => Direction::West,
         };
 
-        let player = Player::new(id, x, y, direction, team_name.to_string());
+        let player = Player::new(id, x, y, direction, team_name.to_string(), freq);
         self.players.insert(id, player);
         Some(id)
     }
 
-    /// Removes a player from the world and frees up a slot for their team.
     pub fn remove_player(&mut self, player_id: usize) {
         if let Some(player) = self.players.remove(&player_id) {
             if let Some(slots) = self.team_slots.get_mut(&player.team) {
@@ -129,19 +113,16 @@ impl World {
         }
     }
 
-    /// Returns a reference to a tile at the given coordinates.
     pub fn get_tile(&self, x: u32, y: u32) -> &Tile {
         let idx = (y * self.width + x) as usize;
         &self.tiles[idx]
     }
 
-    /// Returns a mutable reference to a tile at the given coordinates.
     pub fn get_tile_mut(&mut self, x: u32, y: u32) -> &mut Tile {
         let idx = (y * self.width + x) as usize;
         &mut self.tiles[idx]
     }
 
-    /// Populates the world with resources according to their densities.
     pub fn spawn_resources(&mut self) {
         let mut rng = rand::thread_rng();
         let total_tiles = (self.width * self.height) as f64;
@@ -189,9 +170,9 @@ mod tests {
     fn test_add_remove_player() {
         let mut world = World::new(10, 10, vec!["Team1".to_string()], 1);
         
-        let id = world.add_player("Team1").expect("Should add player");
+        let id = world.add_player("Team1", 100).expect("Should add player");
         assert_eq!(world.team_slots.get("Team1"), Some(&0));
-        assert!(world.add_player("Team1").is_none());
+        assert!(world.add_player("Team1", 100).is_none());
 
         world.remove_player(id);
         assert_eq!(world.team_slots.get("Team1"), Some(&1));
