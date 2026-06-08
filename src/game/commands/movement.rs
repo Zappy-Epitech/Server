@@ -1,10 +1,11 @@
 use crate::game::world::World;
 use crate::protocol::Command;
 
+/// Executes movement-related commands (Forward, Right, Left).
 pub fn execute(command: Command, player_id: usize, world: &mut World) -> String {
     match command {
         Command::Forward => {
-            // TODO: Move player forward (attention au world wrap-around)
+            // TODO: Move player forward (respect world wrap-around)
             "ok\n".to_string()
         }
         Command::Right => {
@@ -18,3 +19,4 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
         _ => "ko\n".to_string(),
     }
 }
+

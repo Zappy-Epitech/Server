@@ -1,6 +1,7 @@
 use crate::game::world::World;
 use crate::protocol::Command;
 
+/// Executes resource interaction commands (Inventory, Take, Set).
 pub fn execute(command: Command, player_id: usize, world: &mut World) -> String {
     match command {
         Command::Inventory => {
