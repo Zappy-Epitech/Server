@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 clap = { version = "4.6.1", features = ["derive"] }
 mio = { version = "1.0.3", features = ["net", "os-poll"] }
+rand = "0.8.5"
