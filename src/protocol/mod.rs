@@ -1,5 +1,6 @@
 use std::time::Instant;
 
+/// The various commands an AI client can send to the server.
 #[derive(Debug, Clone)]
 pub enum Command {
     Forward,
@@ -17,6 +18,7 @@ pub enum Command {
 }
 
 impl Command {
+    /// Returns the base duration of the command in game time units.
     pub fn duration(&self) -> u32 {
         match self {
             Command::Forward | Command::Right | Command::Left | Command::Look | 
@@ -28,6 +30,7 @@ impl Command {
         }
     }
 
+    /// Parses a string into a Command enum.
     pub fn from_str(s: &str) -> Option<Self> {
         let parts: Vec<&str> = s.split_whitespace().collect();
         if parts.is_empty() { return None; }
@@ -50,7 +53,10 @@ impl Command {
     }
 }
 
+/// A command that has been received and scheduled for future execution.
 pub struct PendingCommand {
+    /// The command to be executed.
     pub command: Command,
+    /// The precise moment when the command execution should complete.
     pub end_time: Instant,
 }

@@ -92,6 +92,7 @@ impl Server {
         }
     }
 
+    /// Calculates the duration until the next game event (command completion or death).
     fn get_next_timeout(&self) -> Duration {
         let now = Instant::now();
         let mut min_time = now + Duration::from_millis(100);
@@ -110,6 +111,7 @@ impl Server {
         min_time.saturating_duration_since(now)
     }
 
+    /// Checks for expired commands and player deaths.
     fn update_game(&mut self) {
         let now = Instant::now();
         let mut dead_players = Vec::new();
@@ -146,6 +148,7 @@ impl Server {
         }
     }
 
+    /// Logic to execute a command after its duration has elapsed.
     fn execute_command(&mut self, token: Token, cmd: Command) {
         if let Some(client) = self.clients.get_mut(&token) {
             match cmd {
