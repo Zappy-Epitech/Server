@@ -150,11 +150,20 @@ impl Server {
 
     /// Logic to execute a command after its duration has elapsed.
     fn execute_command(&mut self, token: Token, cmd: Command) {
-        if let Some(client) = self.clients.get_mut(&token) {
-            match cmd {
-                _ => {
-                    client.buffer_out.extend_from_slice(b"ok\n");
-                }
+        let player_id = if let Some(client) = self.clients.get(&token) {
+            if let ClientState::InGame(id) = client.state {
+                Some(id)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        if let Some(id) = player_id {
+            let (_, final_response) = crate::game::commands::execute(cmd, id, &mut self.world);
+            if let Some(client) = self.clients.get_mut(&token) {
+                client.buffer_out.extend_from_slice(final_response.as_bytes());
             }
         }
     }
@@ -227,6 +236,11 @@ impl Server {
                     }
                     ClientState::InGame(id) => {
                         if let Some(cmd) = Command::from_str(&line_str) {
+                            let (immediate, _) = crate::game::commands::execute(cmd.clone(), id, &mut self.world);
+                            if let Some(msg) = immediate {
+                                client.buffer_out.extend_from_slice(msg.as_bytes());
+                            }
+
                             if let Some(player) = self.world.players.get_mut(&id) {
                                 if player.commands.len() < 10 {
                                     let duration = Duration::from_secs_f64(cmd.duration() as f64 / self.config.freq as f64);
