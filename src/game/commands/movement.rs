@@ -21,7 +21,7 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
             "ok\n".to_string()
         }
         Command::Left => {
-            // TODO: Rotate player left
+            player.direction = player.direction.turn_left();
             "ok\n".to_string()
         }
         _ => "ko\n".to_string(),
