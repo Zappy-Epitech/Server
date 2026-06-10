@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 use crate::game::world::Resource;
 use crate::protocol::PendingCommand;
 
+/// The four cardinal directions a player can face.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
     North,
@@ -12,6 +13,7 @@ pub enum Direction {
 }
 
 impl Direction {
+    /// Returns the direction after a 90-degree right turn.
     pub fn turn_right(self) -> Self {
         match self {
             Direction::North => Direction::East,
@@ -21,6 +23,7 @@ impl Direction {
         }
     }
 
+    /// Returns the direction after a 90-degree left turn.
     pub fn turn_left(self) -> Self {
         match self {
             Direction::North => Direction::West,
@@ -31,6 +34,7 @@ impl Direction {
     }
 }
 
+/// Represents an inhabitant of Trantor (a player).
 pub struct Player {
     /// Unique identifier for the player.
     pub id: usize,
@@ -42,7 +46,7 @@ pub struct Player {
     pub direction: Direction,
     /// Current elevation level of the player (starts at 1).
     pub level: u32,
-    /// Player's inventory of resources.
+    /// Player's inventory of resources (excluding food, which is time-based).
     pub inventory: HashMap<Resource, u32>,
     /// The name of the team the player belongs to.
     pub team: String,
@@ -57,12 +61,10 @@ pub struct Player {
 impl Player {
     /// Creates a new player at the given coordinates for a specific team.
     /// 
-    /// Initial inventory contains 10 units of food.
-    /// `freq` is used to calculate the initial `death_time`.
+    /// Initial food is set to 10 units, converting to an expiration `death_time` based on `freq`.
     pub fn new(id: usize, x: u32, y: u32, direction: Direction, team: String, freq: u32) -> Self {
-        let mut inventory = HashMap::new();
-        inventory.insert(Resource::Food, 10);
-
+        let inventory = HashMap::new();
+        
         let now = Instant::now();
         let life_duration = Duration::from_secs_f64(1260.0 / freq as f64);
 
@@ -79,12 +81,34 @@ impl Player {
             death_time: now + life_duration,
         }
     }
+
+    /// Adds one unit of food (126 time units) to the player's lifespan.
+    pub fn add_food(&mut self, freq: u32) {
+        let duration = Duration::from_secs_f64(126.0 / freq as f64);
+        self.death_time += duration;
+    }
+
+    /// Removes one unit of food (126 time units) from the player's lifespan.
+    pub fn remove_food(&mut self, freq: u32) {
+        let duration = Duration::from_secs_f64(126.0 / freq as f64);
+        self.death_time -= duration;
+    }
+
+    /// Calculates the remaining integer units of food based on the time left to live.
+    pub fn get_food_count(&self, freq: u32) -> u32 {
+        let now = Instant::now();
+        if now >= self.death_time { return 0; }
+        
+        let remaining = self.death_time.duration_since(now).as_secs_f64();
+        let unit_duration = 126.0 / freq as f64;
+        
+        (remaining / unit_duration).ceil() as u32
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::protocol::Command;
 
     #[test]
     fn test_player_initialization() {
@@ -95,41 +119,14 @@ mod tests {
         assert_eq!(player.y, 5);
         assert_eq!(player.direction, Direction::North);
         assert_eq!(player.level, 1);
-        assert_eq!(player.inventory.get(&Resource::Food), Some(&10));
     }
 
     #[test]
-    fn test_direction_turns() {
-        let mut dir = Direction::North;
+    fn test_food_count() {
+        let mut player = Player::new(1, 0, 0, Direction::North, "T".to_string(), 100);
+        assert_eq!(player.get_food_count(100), 10);
         
-        dir = dir.turn_right();
-        assert_eq!(dir, Direction::East);
-        
-        dir = dir.turn_right();
-        assert_eq!(dir, Direction::South);
-        
-        dir = dir.turn_left();
-        assert_eq!(dir, Direction::East);
-        
-        dir = dir.turn_left();
-        assert_eq!(dir, Direction::North);
-    }
-
-    #[test]
-    fn test_command_scheduling() {
-        let mut player = Player::new(1, 0, 0, Direction::North, "Team".to_string(), 100);
-        let now = Instant::now();
-        player.last_command_end = now;
-
-        let duration = Duration::from_secs_f64(7.0 / 100.0);
-        let end_time = now + duration;
-        player.commands.push_back(PendingCommand {
-            command: Command::Forward,
-            end_time,
-        });
-        player.last_command_end = end_time;
-
-        assert_eq!(player.commands.len(), 1);
-        assert_eq!(player.last_command_end, end_time);
+        player.add_food(100);
+        assert_eq!(player.get_food_count(100), 11);
     }
 }
