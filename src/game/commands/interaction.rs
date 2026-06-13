@@ -46,9 +46,36 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
                 "ko\n".to_string()
             }
         }
-        Command::Set(_obj) => {
-            // TODO: Transfer obj from player to tile
-            "ok\n".to_string()
+        Command::Set(obj) => {
+            let resource = if let Some(r) = Resource::from_str(&obj) {
+                r
+            } else {
+                return "ko\n".to_string();
+            };
+
+            let player = world.players.get_mut(&player_id).expect("Player should exist");
+            let has_resource = if resource == Resource::Food {
+                player.get_food_count(world.freq) > 0
+            } else {
+                *player.inventory.get(&resource).unwrap_or(&0) > 0
+            };
+
+            if has_resource {
+                if resource == Resource::Food {
+                    player.remove_food(world.freq);
+                } else {
+                    let count = player.inventory.get_mut(&resource).unwrap();
+                    *count -= 1;
+                }
+                
+                let (px, py) = (player.x, player.y);
+                let tile = world.get_tile_mut(px, py);
+                *tile.resources.entry(resource).or_insert(0) += 1;
+                
+                "ok\n".to_string()
+            } else {
+                "ko\n".to_string()
+            }
         }
         _ => "ko\n".to_string(),
     }
