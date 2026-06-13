@@ -26,6 +26,19 @@ impl Resource {
         ]
     }
 
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "food" => Some(Resource::Food),
+            "linemate" => Some(Resource::Linemate),
+            "deraumere" => Some(Resource::Deraumere),
+            "sibur" => Some(Resource::Sibur),
+            "mendiane" => Some(Resource::Mendiane),
+            "phiras" => Some(Resource::Phiras),
+            "thystame" => Some(Resource::Thystame),
+            _ => None,
+        }
+    }
+
     pub fn density(self) -> f64 {
         match self {
             Resource::Food => 0.5,
