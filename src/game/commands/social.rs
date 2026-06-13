@@ -2,6 +2,7 @@ use crate::game::world::World;
 use crate::game::player::Direction;
 use crate::protocol::Command;
 
+/// Executes social and communication commands (Broadcast).
 pub fn execute(command: Command, player_id: usize, world: &mut World) -> String {
     let text = match command {
         Command::Broadcast(t) => t,
@@ -36,6 +37,27 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
     "ok\n".to_string()
 }
 
+/// Calculates the relative direction (1-8) of a sound source on a toroidal map.
+/// 
+/// This implementation uses the **Minimum Image Convention** algorithm.
+/// 
+/// ### The Algorithm: Minimum Image Convention
+/// In a periodic (toroidal) world, a sound source has an infinite number of "images" 
+/// due to the map wrapping around. This algorithm ensures we always calculate the 
+/// path to the *closest* image of the sender.
+/// 
+/// 1. **Shortest Vector**: We calculate the raw distance `dx` and `dy`. If a distance 
+///    is greater than half the world size, we "wrap" it by subtracting/adding the 
+///    full world size. This gives us the shortest possible vector `(dx, dy)` on a torus.
+/// 
+/// 2. **Trigonometry**: We use `atan2(dx, -dy)` to convert this vector into a 
+///    geographic angle where 0° is North (upward in our grid).
+/// 
+/// 3. **Compass Mapping**: The angle is mapped to the RFC's 1-8 compass (8 slices of 45°).
+/// 
+/// 4. **Receiver Relativity**: Finally, we adjust the absolute direction by the 
+///    receiver's current orientation (`rdir`) so that '1' always represents the 
+///    tile directly in front of them.
 fn compute_direction(rx: i32, ry: i32, rdir: Direction, sx: i32, sy: i32, w: i32, h: i32) -> u32 {
     if rx == sx && ry == sy { return 0; }
 
