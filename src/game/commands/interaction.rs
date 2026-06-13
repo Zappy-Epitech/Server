@@ -1,7 +1,8 @@
 use crate::game::world::{World, Resource};
+use crate::game::player::Direction;
 use crate::protocol::Command;
 
-/// Executes resource interaction commands (Inventory, Take, Set).
+/// Executes resource interaction commands (Inventory, Take, Set, Look).
 pub fn execute(command: Command, player_id: usize, world: &mut World) -> String {
     match command {
         Command::Inventory => {
@@ -15,6 +16,46 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
             let t = player.inventory.get(&Resource::Thystame).unwrap_or(&0);
 
             format!("[ l {}, d {}, s {}, m {}, p {}, t {}, f {} ]\n", l, d, s, m, p, t, f)
+        }
+        Command::Look => {
+            let (px, py, dir, level) = {
+                let player = world.players.get(&player_id).expect("Player should exist");
+                (player.x, player.y, player.direction, player.level)
+            };
+
+            let mut tiles_content = Vec::new();
+
+            for d in 0..=level {
+                for lateral in -(d as i32)..=(d as i32) {
+                    let (mut tx, mut ty) = (px as i32, py as i32);
+                    
+                    match dir {
+                        Direction::North => {
+                            tx += lateral;
+                            ty -= d as i32;
+                        }
+                        Direction::East => {
+                            tx += d as i32;
+                            ty += lateral;
+                        }
+                        Direction::South => {
+                            tx -= lateral;
+                            ty += d as i32;
+                        }
+                        Direction::West => {
+                            tx -= d as i32;
+                            ty -= lateral;
+                        }
+                    }
+                    
+                    let final_x = tx.rem_euclid(world.width as i32) as u32;
+                    let final_y = ty.rem_euclid(world.height as i32) as u32;
+
+                    tiles_content.push(world.get_tile_content(final_x, final_y));
+                }
+            }
+
+            format!("[ {} ]\n", tiles_content.join(", "))
         }
         Command::Take(obj) => {
             let resource = if let Some(r) = Resource::from_str(&obj) {
