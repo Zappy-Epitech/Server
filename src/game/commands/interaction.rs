@@ -118,6 +118,20 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
                 "ko\n".to_string()
             }
         }
+        Command::Fork => {
+            let (tx, ty, team_name) = {
+                let player = world.players.get(&player_id).expect("Player should exist");
+                (player.x, player.y, player.team.clone())
+            };
+            
+            world.eggs.push(crate::game::world::Egg {
+                x: tx,
+                y: ty,
+                team: team_name,
+            });
+            
+            "ok\n".to_string()
+        }
         _ => "ko\n".to_string(),
     }
 }

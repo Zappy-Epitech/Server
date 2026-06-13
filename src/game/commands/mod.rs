@@ -21,7 +21,7 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
         Command::Forward | Command::Right | Command::Left => {
             movement::execute(command, player_id, world)
         }
-        Command::Look | Command::Inventory | Command::Take(_) | Command::Set(_) => {
+        Command::Look | Command::Inventory | Command::Take(_) | Command::Set(_) | Command::Fork => {
             interaction::execute(command, player_id, world)
         }
         Command::Broadcast(_) => {
@@ -35,9 +35,11 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
                 let player = world.players.get(&player_id).expect("Player should exist");
                 player.team.clone()
             };
-            let slots = world.team_slots.get(&team_name).unwrap_or(&0);
-            format!("{}\n", slots)
+            let initial_slots = *world.team_slots.get(&team_name).unwrap_or(&0);
+            let egg_slots = world.eggs.iter().filter(|e| e.team == team_name).count();
+            format!("{}\n", initial_slots + egg_slots)
         }
+
         _ => "ok\n".to_string(),
     }
 }

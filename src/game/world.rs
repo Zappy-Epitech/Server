@@ -77,12 +77,19 @@ impl Tile {
     }
 }
 
+pub struct Egg {
+    pub x: u32,
+    pub y: u32,
+    pub team: String,
+}
+
 pub struct World {
     pub width: u32,
     pub height: u32,
     pub tiles: Vec<Tile>,
     pub players: HashMap<usize, Player>,
     pub team_slots: HashMap<String, usize>,
+    pub eggs: Vec<Egg>,
     pub freq: u32,
     next_player_id: usize,
 }
@@ -100,6 +107,7 @@ impl World {
             tiles: vec![Tile::new(); (width * height) as usize],
             players: HashMap::new(),
             team_slots,
+            eggs: Vec::new(),
             freq,
             next_player_id: 1,
         };
@@ -108,18 +116,25 @@ impl World {
     }
 
     pub fn add_player(&mut self, team_name: &str, freq: u32) -> Option<usize> {
-        let slots = self.team_slots.get_mut(team_name)?;
-        if *slots == 0 {
-            return None;
-        }
-        *slots -= 1;
+        let mut spawn_pos = None;
 
+        if let Some(pos) = self.eggs.iter().position(|e| e.team == team_name) {
+            let egg = self.eggs.remove(pos);
+            spawn_pos = Some((egg.x, egg.y));
+        } else {
+            let slots = self.team_slots.get_mut(team_name)?;
+            if *slots > 0 {
+                *slots -= 1;
+                let mut rng = rand::thread_rng();
+                spawn_pos = Some((rng.gen_range(0..self.width), rng.gen_range(0..self.height)));
+            }
+        }
+
+        let (x, y) = spawn_pos?;
         let mut rng = rand::thread_rng();
         let id = self.next_player_id;
         self.next_player_id += 1;
 
-        let x = rng.gen_range(0..self.width);
-        let y = rng.gen_range(0..self.height);
         let direction = match rng.gen_range(0..4) {
             0 => Direction::North,
             1 => Direction::East,
