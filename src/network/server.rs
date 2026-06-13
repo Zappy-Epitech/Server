@@ -91,6 +91,25 @@ impl Server {
                 }
             }
             self.update_game();
+            self.flush_notifications();
+        }
+    }
+
+    /// Sends all pending notifications to the clients.
+    fn flush_notifications(&mut self) {
+        let mut tokens_to_flush = Vec::new();
+        for (token, client) in self.clients.iter_mut() {
+            if let ClientState::InGame(id) = client.state {
+                if let Some(player) = self.world.players.get_mut(&id) {
+                    while let Some(notif) = player.notifications.pop_front() {
+                        client.buffer_out.extend_from_slice(notif.as_bytes());
+                        tokens_to_flush.push(*token);
+                    }
+                }
+            }
+        }
+        for token in tokens_to_flush {
+            self.handle_write(token);
         }
     }
 
