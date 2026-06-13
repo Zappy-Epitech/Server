@@ -21,7 +21,7 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
         Command::Forward | Command::Right | Command::Left => {
             movement::execute(command, player_id, world)
         }
-        Command::Inventory | Command::Take(_) | Command::Set(_) => {
+        Command::Look | Command::Inventory | Command::Take(_) | Command::Set(_) => {
             interaction::execute(command, player_id, world)
         }
         Command::Broadcast(_) => {

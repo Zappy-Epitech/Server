@@ -39,6 +39,18 @@ impl Resource {
         }
     }
 
+    pub fn to_str(self) -> &'static str {
+        match self {
+            Resource::Food => "food",
+            Resource::Linemate => "linemate",
+            Resource::Deraumere => "deraumere",
+            Resource::Sibur => "sibur",
+            Resource::Mendiane => "mendiane",
+            Resource::Phiras => "phiras",
+            Resource::Thystame => "thystame",
+        }
+    }
+
     pub fn density(self) -> f64 {
         match self {
             Resource::Food => 0.5,
@@ -136,6 +148,27 @@ impl World {
     pub fn get_tile_mut(&mut self, x: u32, y: u32) -> &mut Tile {
         let idx = (y * self.width + x) as usize;
         &mut self.tiles[idx]
+    }
+
+    pub fn get_tile_content(&self, x: u32, y: u32) -> String {
+        let mut content = Vec::new();
+        
+        for player in self.players.values() {
+            if player.x == x && player.y == y {
+                content.push("player".to_string());
+            }
+        }
+
+        let tile = self.get_tile(x, y);
+        for resource in Resource::all() {
+            if let Some(&count) = tile.resources.get(resource) {
+                for _ in 0..count {
+                    content.push(resource.to_str().to_string());
+                }
+            }
+        }
+
+        content.join(" ")
     }
 
     pub fn spawn_resources(&mut self) {
