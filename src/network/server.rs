@@ -76,6 +76,7 @@ impl Server {
                             let mut client = Client::new(stream);
                             client.buffer_out.extend_from_slice(b"WELCOME\n");
                             self.clients.insert(token, client);
+                            self.handle_write(token);
                         }
                     }
                     token => {
@@ -143,6 +144,9 @@ impl Server {
         }
 
         for (token, id) in dead_players {
+            if self.clients.contains_key(&token) {
+                self.handle_write(token);
+            }
             self.world.remove_player(id);
             self.clients.remove(&token);
         }
@@ -161,10 +165,11 @@ impl Server {
         };
 
         if let Some(id) = player_id {
-            let (_, final_response) = crate::game::commands::execute(cmd, id, &mut self.world);
+            let response = crate::game::commands::execute(cmd, id, &mut self.world);
             if let Some(client) = self.clients.get_mut(&token) {
-                client.buffer_out.extend_from_slice(final_response.as_bytes());
+                client.buffer_out.extend_from_slice(response.as_bytes());
             }
+            self.handle_write(token);
         }
     }
 
@@ -233,12 +238,13 @@ impl Server {
                         } else {
                             client.buffer_out.extend_from_slice(b"ko\n");
                         }
+                        self.handle_write(token);
                     }
                     ClientState::InGame(id) => {
                         if let Some(cmd) = Command::from_str(&line_str) {
-                            let (immediate, _) = crate::game::commands::execute(cmd.clone(), id, &mut self.world);
-                            if let Some(msg) = immediate {
+                            if let Some(msg) = crate::game::commands::init(&cmd, id, &mut self.world) {
                                 client.buffer_out.extend_from_slice(msg.as_bytes());
+                                self.handle_write(token);
                             }
 
                             if let Some(player) = self.world.players.get_mut(&id) {
@@ -252,6 +258,7 @@ impl Server {
                             }
                         } else {
                             client.buffer_out.extend_from_slice(b"ko\n");
+                            self.handle_write(token);
                         }
                     }
                     _ => {}
