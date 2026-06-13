@@ -58,11 +58,12 @@ pub struct World {
     pub tiles: Vec<Tile>,
     pub players: HashMap<usize, Player>,
     pub team_slots: HashMap<String, usize>,
+    pub freq: u32,
     next_player_id: usize,
 }
 
 impl World {
-    pub fn new(width: u32, height: u32, teams: Vec<String>, clients_per_team: usize) -> Self {
+    pub fn new(width: u32, height: u32, teams: Vec<String>, clients_per_team: usize, freq: u32) -> Self {
         let mut team_slots = HashMap::new();
         for team in teams {
             team_slots.insert(team, clients_per_team);
@@ -74,6 +75,7 @@ impl World {
             tiles: vec![Tile::new(); (width * height) as usize],
             players: HashMap::new(),
             team_slots,
+            freq,
             next_player_id: 1,
         };
         world.spawn_resources();
@@ -146,7 +148,7 @@ mod tests {
     #[test]
     fn test_world_creation() {
         let teams = vec!["Team1".to_string(), "Team2".to_string()];
-        let world = World::new(10, 10, teams, 5);
+        let world = World::new(10, 10, teams, 5, 100);
 
         assert_eq!(world.width, 10);
         assert_eq!(world.height, 10);
@@ -156,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_resource_spawning() {
-        let world = World::new(10, 10, vec!["Team1".to_string()], 2);
+        let world = World::new(10, 10, vec!["Team1".to_string()], 2, 100);
         
         let mut total_food = 0;
         for tile in &world.tiles {
@@ -168,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_add_remove_player() {
-        let mut world = World::new(10, 10, vec!["Team1".to_string()], 1);
+        let mut world = World::new(10, 10, vec!["Team1".to_string()], 1, 100);
         
         let id = world.add_player("Team1", 100).expect("Should add player");
         assert_eq!(world.team_slots.get("Team1"), Some(&0));
