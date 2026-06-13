@@ -36,6 +36,7 @@ impl Server {
             config.height,
             config.teams.clone(),
             config.clients_nb,
+            config.freq,
         );
 
         Ok(Self {
