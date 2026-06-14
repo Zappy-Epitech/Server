@@ -1,3 +1,5 @@
+pub mod gui;
+
 use std::time::Instant;
 
 /// The various commands an AI client can send to the server.

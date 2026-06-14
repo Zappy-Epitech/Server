@@ -9,6 +9,7 @@ use crate::config::ServerConfig;
 use crate::network::client::{Client, ClientState};
 use crate::game::world::World;
 use crate::protocol::{Command, PendingCommand};
+use crate::protocol::gui::GuiCommand;
 
 /// Token used to identify the server listener in the event loop.
 const SERVER_TOKEN: Token = Token(0);
@@ -113,6 +114,20 @@ impl Server {
         }
     }
 
+    /// Sends a message to all connected graphical clients.
+    pub fn broadcast_gui(&mut self, msg: &str) {
+        let mut tokens = Vec::new();
+        for (token, client) in self.clients.iter_mut() {
+            if let ClientState::Graphic = client.state {
+                client.buffer_out.extend_from_slice(msg.as_bytes());
+                tokens.push(*token);
+            }
+        }
+        for token in tokens {
+            self.handle_write(token);
+        }
+    }
+
     /// Calculates the duration until the next game event.
     fn get_next_timeout(&self) -> Duration {
         let now = Instant::now();
@@ -204,6 +219,17 @@ impl Server {
         }
     }
 
+    fn handle_gui_command(&mut self, token: Token, cmd: GuiCommand) {
+        let response = match cmd {
+            GuiCommand::MapSize => format!("msz {} {}\n", self.config.width, self.config.height),
+            _ => "suc\n".to_string(),
+        };
+        if let Some(client) = self.clients.get_mut(&token) {
+            client.buffer_out.extend_from_slice(response.as_bytes());
+        }
+        self.handle_write(token);
+    }
+
     /// Reads data from a client's socket into its input buffer.
     fn handle_read(&mut self, token: Token) {
         let mut closed = false;
@@ -293,7 +319,14 @@ impl Server {
                             self.handle_write(token);
                         }
                     }
-                    _ => {}
+                    ClientState::Graphic => {
+                        if let Some(cmd) = GuiCommand::from_str(&line_str) {
+                            self.handle_gui_command(token, cmd);
+                        } else {
+                            client.buffer_out.extend_from_slice(b"suc\n");
+                            self.handle_write(token);
+                        }
+                    }
                 }
             }
         }
