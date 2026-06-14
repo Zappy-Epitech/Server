@@ -113,7 +113,7 @@ impl Server {
         }
     }
 
-    /// Calculates the duration until the next game event (command completion or death).
+    /// Calculates the duration until the next game event.
     fn get_next_timeout(&self) -> Duration {
         let now = Instant::now();
         let mut min_time = now + Duration::from_millis(100);
@@ -129,12 +129,23 @@ impl Server {
             }
         }
 
+        if self.world.next_spawn_time < min_time {
+            min_time = self.world.next_spawn_time;
+        }
+
         min_time.saturating_duration_since(now)
     }
 
-    /// Checks for expired commands and player deaths.
+    /// Checks for expired commands, player deaths, and resource respawn.
     fn update_game(&mut self) {
         let now = Instant::now();
+
+        if now >= self.world.next_spawn_time {
+            self.world.spawn_resources();
+            let spawn_interval = Duration::from_secs_f64(20.0 / self.config.freq as f64);
+            self.world.next_spawn_time = now + spawn_interval;
+        }
+
         let mut dead_players = Vec::new();
         let mut commands_to_execute = Vec::new();
 
@@ -252,8 +263,9 @@ impl Server {
                         } else if let Some(player_id) = self.world.add_player(&line_str, self.config.freq) {
                             client.state = ClientState::InGame(player_id);
                             client.team_name = Some(line_str.clone());
-                            let slots = self.world.team_slots.get(&line_str).unwrap_or(&0);
-                            let msg = format!("{}\n{} {}\n", slots, self.config.width, self.config.height);
+                            let initial_slots = *self.world.team_slots.get(&line_str).unwrap_or(&0);
+                            let egg_slots = self.world.eggs.iter().filter(|e| e.team == line_str).count();
+                            let msg = format!("{}\n{} {}\n", initial_slots + egg_slots, self.config.width, self.config.height);
                             client.buffer_out.extend_from_slice(msg.as_bytes());
                         } else {
                             client.buffer_out.extend_from_slice(b"ko\n");
