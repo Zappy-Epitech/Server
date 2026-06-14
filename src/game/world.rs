@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 use rand::Rng;
 use crate::game::player::{Player, Direction};
 
@@ -91,6 +92,7 @@ pub struct World {
     pub team_slots: HashMap<String, usize>,
     pub eggs: Vec<Egg>,
     pub freq: u32,
+    pub next_spawn_time: Instant,
     next_player_id: usize,
 }
 
@@ -101,6 +103,9 @@ impl World {
             team_slots.insert(team, clients_per_team);
         }
 
+        let now = Instant::now();
+        let spawn_interval = Duration::from_secs_f64(20.0 / freq as f64);
+
         let mut world = Self {
             width,
             height,
@@ -109,6 +114,7 @@ impl World {
             team_slots,
             eggs: Vec::new(),
             freq,
+            next_spawn_time: now + spawn_interval,
             next_player_id: 1,
         };
         world.spawn_resources();
@@ -192,11 +198,19 @@ impl World {
 
         for &resource in Resource::all() {
             let total_quantity = (total_tiles * resource.density()).ceil() as u32;
-            for _ in 0..total_quantity {
-                let x = rng.gen_range(0..self.width);
-                let y = rng.gen_range(0..self.height);
-                let tile = self.get_tile_mut(x, y);
-                *tile.resources.entry(resource).or_insert(0) += 1;
+            
+            let mut current_quantity = 0;
+            for tile in &self.tiles {
+                current_quantity += tile.resources.get(&resource).unwrap_or(&0);
+            }
+
+            if current_quantity < total_quantity {
+                for _ in 0..(total_quantity - current_quantity) {
+                    let x = rng.gen_range(0..self.width);
+                    let y = rng.gen_range(0..self.height);
+                    let tile = self.get_tile_mut(x, y);
+                    *tile.resources.entry(resource).or_insert(0) += 1;
+                }
             }
         }
     }
