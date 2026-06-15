@@ -84,37 +84,30 @@ static ACTIVE_INCANTATIONS: LazyLock<Mutex<HashMap<usize, Option<u32>>>> = LazyL
 
 /// Handles the initiation of an incantation ritual (RFC Section 7.12).
 /// 
-/// Returns `(ImmediateResponse, FinalResponsePlaceholder)`.
-pub fn handle_start(player_id: usize, world: &mut World) -> (Option<String>, String) {
+/// Returns `Some("Elevation underway\n")` or `Some("ko\n")`.
+pub fn handle_start(player_id: usize, world: &mut World) -> Option<String> {
     let mut active = ACTIVE_INCANTATIONS.lock().unwrap();
 
-    let contains_key = active.contains_key(&player_id);
-    if contains_key {
-        drop(active);
-        let final_result = execute(player_id, world);
-        (None, final_result)
+    let (x, y, level) = match world.players.get(&player_id) {
+        Some(p) => (p.x, p.y, p.level),
+        None => return Some("ko\n".to_string()),
+    };
+
+    let req = match get_requirements(level) {
+        Some(r) => r,
+        None => return Some("ko\n".to_string()),
+    };
+
+    let tile = world.get_tile(x, y);
+    let resource_check = check_resources(tile, &req);
+    let player_count = count_players_on_tile(world, x, y, level);
+
+    if resource_check && player_count >= req.nb_players {
+        active.insert(player_id, Some(level));
+        Some("Elevation underway\n".to_string())
     } else {
-        let (x, y, level) = match world.players.get(&player_id) {
-            Some(p) => (p.x, p.y, p.level),
-            None => return (Some("ko\n".to_string()), "ko\n".to_string()),
-        };
-
-        let req = match get_requirements(level) {
-            Some(r) => r,
-            None => return (Some("ko\n".to_string()), "ko\n".to_string()),
-        };
-
-        let tile = world.get_tile(x, y);
-        let resource_check = check_resources(tile, &req);
-        let player_count = count_players_on_tile(world, x, y, level);
-
-        if resource_check && player_count >= req.nb_players {
-            active.insert(player_id, Some(level));
-            (Some("Elevation underway\n".to_string()), String::new())
-        } else {
-            active.insert(player_id, None);
-            (Some("ko\n".to_string()), "".to_string())
-        }
+        active.insert(player_id, None);
+        Some("ko\n".to_string())
     }
 }
 
