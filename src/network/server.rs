@@ -9,6 +9,7 @@ use crate::config::ServerConfig;
 use crate::network::client::{Client, ClientState};
 use crate::game::world::World;
 use crate::protocol::{Command, PendingCommand};
+use crate::protocol::gui::GuiCommand;
 
 /// Token used to identify the server listener in the event loop.
 const SERVER_TOKEN: Token = Token(0);
@@ -36,6 +37,7 @@ impl Server {
             config.height,
             config.teams.clone(),
             config.clients_nb,
+            config.freq,
         );
 
         Ok(Self {
@@ -76,6 +78,7 @@ impl Server {
                             let mut client = Client::new(stream);
                             client.buffer_out.extend_from_slice(b"WELCOME\n");
                             self.clients.insert(token, client);
+                            self.handle_write(token);
                         }
                     }
                     token => {
@@ -89,10 +92,43 @@ impl Server {
                 }
             }
             self.update_game();
+            self.flush_notifications();
         }
     }
 
-    /// Calculates the duration until the next game event (command completion or death).
+    /// Sends all pending notifications to the clients.
+    fn flush_notifications(&mut self) {
+        let mut tokens_to_flush = Vec::new();
+        for (token, client) in self.clients.iter_mut() {
+            if let ClientState::InGame(id) = client.state {
+                if let Some(player) = self.world.players.get_mut(&id) {
+                    while let Some(notif) = player.notifications.pop_front() {
+                        client.buffer_out.extend_from_slice(notif.as_bytes());
+                        tokens_to_flush.push(*token);
+                    }
+                }
+            }
+        }
+        for token in tokens_to_flush {
+            self.handle_write(token);
+        }
+    }
+
+    /// Sends a message to all connected graphical clients.
+    pub fn broadcast_gui(&mut self, msg: &str) {
+        let mut tokens = Vec::new();
+        for (token, client) in self.clients.iter_mut() {
+            if let ClientState::Graphic = client.state {
+                client.buffer_out.extend_from_slice(msg.as_bytes());
+                tokens.push(*token);
+            }
+        }
+        for token in tokens {
+            self.handle_write(token);
+        }
+    }
+
+    /// Calculates the duration until the next game event.
     fn get_next_timeout(&self) -> Duration {
         let now = Instant::now();
         let mut min_time = now + Duration::from_millis(100);
@@ -108,12 +144,23 @@ impl Server {
             }
         }
 
+        if self.world.next_spawn_time < min_time {
+            min_time = self.world.next_spawn_time;
+        }
+
         min_time.saturating_duration_since(now)
     }
 
-    /// Checks for expired commands and player deaths.
+    /// Checks for expired commands, player deaths, and resource respawn.
     fn update_game(&mut self) {
         let now = Instant::now();
+
+        if now >= self.world.next_spawn_time {
+            self.world.spawn_resources();
+            let spawn_interval = Duration::from_secs_f64(20.0 / self.config.freq as f64);
+            self.world.next_spawn_time = now + spawn_interval;
+        }
+
         let mut dead_players = Vec::new();
         let mut commands_to_execute = Vec::new();
 
@@ -143,6 +190,9 @@ impl Server {
         }
 
         for (token, id) in dead_players {
+            if self.clients.contains_key(&token) {
+                self.handle_write(token);
+            }
             self.world.remove_player(id);
             self.clients.remove(&token);
         }
@@ -161,11 +211,23 @@ impl Server {
         };
 
         if let Some(id) = player_id {
-            let (_, final_response) = crate::game::commands::execute(cmd, id, &mut self.world);
+            let response = crate::game::commands::execute(cmd, id, &mut self.world);
             if let Some(client) = self.clients.get_mut(&token) {
-                client.buffer_out.extend_from_slice(final_response.as_bytes());
+                client.buffer_out.extend_from_slice(response.as_bytes());
             }
+            self.handle_write(token);
         }
+    }
+
+    fn handle_gui_command(&mut self, token: Token, cmd: GuiCommand) {
+        let response = match cmd {
+            GuiCommand::MapSize => format!("msz {} {}\n", self.config.width, self.config.height),
+            _ => "suc\n".to_string(),
+        };
+        if let Some(client) = self.clients.get_mut(&token) {
+            client.buffer_out.extend_from_slice(response.as_bytes());
+        }
+        self.handle_write(token);
     }
 
     /// Reads data from a client's socket into its input buffer.
@@ -227,18 +289,20 @@ impl Server {
                         } else if let Some(player_id) = self.world.add_player(&line_str, self.config.freq) {
                             client.state = ClientState::InGame(player_id);
                             client.team_name = Some(line_str.clone());
-                            let slots = self.world.team_slots.get(&line_str).unwrap_or(&0);
-                            let msg = format!("{}\n{} {}\n", slots, self.config.width, self.config.height);
+                            let initial_slots = *self.world.team_slots.get(&line_str).unwrap_or(&0);
+                            let egg_slots = self.world.eggs.iter().filter(|e| e.team == line_str).count();
+                            let msg = format!("{}\n{} {}\n", initial_slots + egg_slots, self.config.width, self.config.height);
                             client.buffer_out.extend_from_slice(msg.as_bytes());
                         } else {
                             client.buffer_out.extend_from_slice(b"ko\n");
                         }
+                        self.handle_write(token);
                     }
                     ClientState::InGame(id) => {
                         if let Some(cmd) = Command::from_str(&line_str) {
-                            let (immediate, _) = crate::game::commands::execute(cmd.clone(), id, &mut self.world);
-                            if let Some(msg) = immediate {
+                            if let Some(msg) = crate::game::commands::init(&cmd, id, &mut self.world) {
                                 client.buffer_out.extend_from_slice(msg.as_bytes());
+                                self.handle_write(token);
                             }
 
                             if let Some(player) = self.world.players.get_mut(&id) {
@@ -252,9 +316,17 @@ impl Server {
                             }
                         } else {
                             client.buffer_out.extend_from_slice(b"ko\n");
+                            self.handle_write(token);
                         }
                     }
-                    _ => {}
+                    ClientState::Graphic => {
+                        if let Some(cmd) = GuiCommand::from_str(&line_str) {
+                            self.handle_gui_command(token, cmd);
+                        } else {
+                            client.buffer_out.extend_from_slice(b"suc\n");
+                            self.handle_write(token);
+                        }
+                    }
                 }
             }
         }

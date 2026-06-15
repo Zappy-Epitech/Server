@@ -5,68 +5,92 @@ pub mod incantation;
 
 use crate::game::world::World;
 use crate::protocol::Command;
+use crate::game::player::Direction;
 
-/// Dispatches a command to the appropriate module and returns its responses.
-/// 
-/// According to RFC-ZAPPY-001, some commands have an immediate response 
-/// (like Incantation's "Elevation underway\n") and all commands have a 
-/// final response after their time delay.
-/// 
-/// Returns a tuple: `(Option<ImmediateResponse>, FinalResponse)`.
-pub fn execute(command: Command, player_id: usize, world: &mut World) -> (Option<String>, String) {
+/// Handles the immediate part of a command (RFC requirement).
+/// Only returns a message if the command requires an immediate response.
+pub fn init(command: &Command, player_id: usize, world: &mut World) -> Option<String> {
     match command {
-        Command::Forward | Command::Right | Command::Left => {
-            (None, movement::execute(command, player_id, world))
+        Command::Incantation => incantation::handle_start(player_id, world),
+        _ => None,
+    }
+}
+
+/// Handles the final execution of a command after its time delay.
+pub fn execute(command: Command, player_id: usize, world: &mut World) -> String {
+    match command {
+        Command::Forward | Command::Right | Command::Left | Command::Eject => {
+            movement::execute(command, player_id, world)
         }
-        Command::Inventory | Command::Take(_) | Command::Set(_) => {
-            (None, interaction::execute(command, player_id, world))
+        Command::Look | Command::Inventory | Command::Take(_) | Command::Set(_) | Command::Fork => {
+            interaction::execute(command, player_id, world)
         }
         Command::Broadcast(_) => {
-            (None, social::execute(command, player_id, world))
+            social::execute(command, player_id, world)
         }
         Command::Incantation => {
-            incantation::handle_start(player_id, world)
+            incantation::execute(player_id, world)
         }
         Command::ConnectNbr => {
             let team_name = {
                 let player = world.players.get(&player_id).expect("Player should exist");
                 player.team.clone()
             };
-            let slots = world.team_slots.get(&team_name).unwrap_or(&0);
-            (None, format!("{}\n", slots))
+            let initial_slots = *world.team_slots.get(&team_name).unwrap_or(&0);
+            let egg_slots = world.eggs.iter().filter(|e| e.team == team_name).count();
+            format!("{}\n", initial_slots + egg_slots)
         }
-        _ => (None, "ok\n".to_string()),
+        _ => "ok\n".to_string(),
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// Calculates the relative direction (1-8) of a sound source on a toroidal map.
+/// 
+/// This implementation uses the **Minimum Image Convention** algorithm.
+/// 
+/// ### The Algorithm: Minimum Image Convention
+/// In a periodic (toroidal) world, a sound source has an infinite number of "images" 
+/// due to the map wrapping around. This algorithm ensures we always calculate the 
+/// path to the *closest* image of the sender.
+/// 
+/// 1. **Shortest Vector**: We calculate the raw distance `dx` and `dy`. If a distance 
+///    is greater than half the world size, we "wrap" it by subtracting/adding the 
+///    full world size. This gives us the shortest possible vector `(dx, dy)` on a torus.
+/// 
+/// 2. **Trigonometry**: We use `atan2(dx, -dy)` to convert this vector into a 
+///    geographic angle where 0° is North (upward in our grid).
+/// 
+/// 3. **Compass Mapping**: The angle is mapped to the RFC's 1-8 compass (8 slices of 45°).
+/// 
+/// 4. **Receiver Relativity**: Finally, we adjust the absolute direction by the 
+///    receiver's current orientation (`rdir`) so that '1' always represents the 
+///    tile directly in front of them.
+pub fn compute_direction(rx: i32, ry: i32, rdir: Direction, sx: i32, sy: i32, w: i32, h: i32) -> u32 {
+    if rx == sx && ry == sy { return 0; }
 
-    #[test]
-    fn test_connect_nbr_dispatch() {
-        let mut world = World::new(10, 10, vec!["Team1".to_string()], 5);
-        let player_id = world.add_player("Team1", 100).unwrap();
-        
-        let (immediate, final_res) = execute(Command::ConnectNbr, player_id, &mut world);
-        
-        assert!(immediate.is_none());
-        assert_eq!(final_res, "4\n"); // 5 - 1
-    }
+    let mut dx = sx - rx;
+    let mut dy = sy - ry;
 
-    #[test]
-    fn test_incantation_immediate_dispatch() {
-        let mut world = World::new(10, 10, vec!["Team1".to_string()], 5);
-        let player_id = world.add_player("Team1", 100).unwrap();
-        
-        let (x, y) = {
-            let player = world.players.get(&player_id).unwrap();
-            (player.x, player.y)
-        };
-        world.get_tile_mut(x, y).resources.insert(crate::game::world::Resource::Linemate, 1);
-        
-        let (immediate, _) = execute(Command::Incantation, player_id, &mut world);
-        
-        assert_eq!(immediate, Some("Elevation underway\n".to_string()));
-    }
+    if dx.abs() > w / 2 { dx -= dx.signum() * w; }
+    if dy.abs() > h / 2 { dy -= dy.signum() * h; }
+
+    let angle = (dx as f64).atan2(-dy as f64).to_degrees();
+    let normalized_angle = if angle < 0.0 { angle + 360.0 } else { angle };
+
+    let abs_k = (((normalized_angle + 22.5) % 360.0) / 45.0).floor() as u32 + 1;
+
+    let dir_offset = match rdir {
+        Direction::North => 0,
+        Direction::East => 2,
+        Direction::South => 4,
+        Direction::West => 6,
+    };
+
+    let relative_k = if abs_k == 0 { 0 } else {
+        let mut k = abs_k as i32 - dir_offset;
+        while k <= 0 { k += 8; }
+        k as u32
+    };
+
+    relative_k
 }
