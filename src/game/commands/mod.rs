@@ -59,6 +59,12 @@ mod tests {
         let mut world = World::new(10, 10, vec!["Team1".to_string()], 5);
         let player_id = world.add_player("Team1", 100).unwrap();
         
+        let (x, y) = {
+            let player = world.players.get(&player_id).unwrap();
+            (player.x, player.y)
+        };
+        world.get_tile_mut(x, y).resources.insert(crate::game::world::Resource::Linemate, 1);
+        
         let (immediate, _) = execute(Command::Incantation, player_id, &mut world);
         
         assert_eq!(immediate, Some("Elevation underway\n".to_string()));
