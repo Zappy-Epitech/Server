@@ -61,6 +61,7 @@ mod tests {
             teams: vec!["TeamA".to_string(), "TeamB".to_string()],
             clients_nb: 2,
             freq: 100,
+            bonus: false,
         };
         let world = World::new(config.width, config.height, config.teams.clone(), config.clients_nb, config.freq);
         (world, config)
