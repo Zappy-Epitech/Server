@@ -3,6 +3,10 @@ use crate::config::ServerConfig;
 use crate::protocol::gui::GuiCommand;
 use std::time::{Duration, Instant};
 
+/// Executes time-related GUI commands (`sgt`, `sst`).
+/// 
+/// Dynamically scales the remaining time of all ongoing events (death, commands, respawns)
+/// when the server frequency is modified.
 pub fn execute(command: GuiCommand, world: &mut World, config: &mut ServerConfig) -> Vec<String> {
     match command {
         GuiCommand::TimeRequest => {
@@ -43,5 +47,33 @@ pub fn execute(command: GuiCommand, world: &mut World, config: &mut ServerConfig
             vec![format!("sst {}\n", config.freq)]
         }
         _ => Vec::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_time_commands() {
+        let mut config = ServerConfig {
+            port: 4242,
+            width: 10,
+            height: 10,
+            teams: vec!["TeamA".to_string()],
+            clients_nb: 5,
+            freq: 100,
+        };
+        let mut world = World::new(config.width, config.height, config.teams.clone(), config.clients_nb, config.freq);
+
+        let res_sgt = execute(GuiCommand::TimeRequest, &mut world, &mut config);
+        assert_eq!(res_sgt.len(), 1);
+        assert_eq!(res_sgt[0], "sgt 100\n");
+
+        let res_sst = execute(GuiCommand::TimeUpdate(200), &mut world, &mut config);
+        assert_eq!(res_sst.len(), 1);
+        assert_eq!(res_sst[0], "sst 200\n");
+        assert_eq!(config.freq, 200);
+        assert_eq!(world.freq, 200);
     }
 }

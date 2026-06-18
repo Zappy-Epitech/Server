@@ -40,7 +40,6 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
             let egg_slots = world.eggs.iter().filter(|e| e.team == team_name).count();
             format!("{}\n", initial_slots + egg_slots)
         }
-        _ => "ok\n".to_string(),
     }
 }
 
