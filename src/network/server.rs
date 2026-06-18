@@ -91,9 +91,13 @@ impl Server {
                     }
                 }
             }
-            self.update_game();
+            if self.update_game() {
+                self.flush_notifications();
+                break;
+            }
             self.flush_notifications();
         }
+        Ok(())
     }
 
     /// Sends all pending notifications to the clients.
@@ -152,7 +156,7 @@ impl Server {
     }
 
     /// Checks for expired commands, player deaths, and resource respawn.
-    fn update_game(&mut self) {
+    fn update_game(&mut self) -> bool {
         let now = Instant::now();
 
         if now >= self.world.next_spawn_time {
@@ -205,6 +209,12 @@ impl Server {
         for event in world_events {
             self.broadcast_gui(&event);
         }
+
+        if let Some(winning_team) = self.world.check_victory() {
+            self.broadcast_gui(&format!("seg {}\n", winning_team));
+            return true;
+        }
+        false
     }
 
     /// Logic to execute a command after its duration has elapsed.
