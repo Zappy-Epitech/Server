@@ -79,6 +79,7 @@ impl Tile {
 }
 
 pub struct Egg {
+    pub id: usize,
     pub x: u32,
     pub y: u32,
     pub team: String,
@@ -93,7 +94,9 @@ pub struct World {
     pub eggs: Vec<Egg>,
     pub freq: u32,
     pub next_spawn_time: Instant,
+    pub gui_events: std::collections::VecDeque<String>,
     next_player_id: usize,
+    pub next_egg_id: usize,
 }
 
 impl World {
@@ -115,7 +118,9 @@ impl World {
             eggs: Vec::new(),
             freq,
             next_spawn_time: now + spawn_interval,
+            gui_events: std::collections::VecDeque::new(),
             next_player_id: 1,
+            next_egg_id: 1,
         };
         world.spawn_resources();
         world
@@ -126,6 +131,7 @@ impl World {
 
         if let Some(pos) = self.eggs.iter().position(|e| e.team == team_name) {
             let egg = self.eggs.remove(pos);
+            self.gui_events.push_back(format!("edi {}\n", egg.id));
             spawn_pos = Some((egg.x, egg.y));
         } else {
             let slots = self.team_slots.get_mut(team_name)?;
