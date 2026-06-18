@@ -63,6 +63,7 @@ mod tests {
             teams: vec!["TeamA".to_string()],
             clients_nb: 5,
             freq: 100,
+            bonus: false,
         };
         let mut world = World::new(config.width, config.height, config.teams.clone(), config.clients_nb, config.freq);
 

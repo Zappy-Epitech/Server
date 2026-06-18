@@ -10,6 +10,8 @@ use crate::network::client::{Client, ClientState};
 use crate::game::world::World;
 use crate::protocol::{Command, PendingCommand};
 use crate::protocol::gui::GuiCommand;
+use crate::tui::ServerEvent;
+use std::sync::mpsc::Sender;
 
 /// Token used to identify the server listener in the event loop.
 const SERVER_TOKEN: Token = Token(0);
@@ -26,11 +28,13 @@ pub struct Server {
     next_token: usize,
     /// The game world of Trantor.
     world: World,
+    /// Optional sender to emit events to the TUI.
+    tui_tx: Option<Sender<ServerEvent>>,
 }
 
 impl Server {
     /// Creates a new Server instance based on the provided configuration.
-    pub fn new(config: ServerConfig) -> io::Result<Self> {
+    pub fn new(config: ServerConfig, tui_tx: Option<Sender<ServerEvent>>) -> io::Result<Self> {
         let poll = Poll::new()?;
         let world = World::new(
             config.width,
@@ -46,7 +50,23 @@ impl Server {
             clients: HashMap::new(),
             next_token: 1,
             world,
+            tui_tx,
         })
+    }
+
+    /// Helper to either print to stdout or send to TUI.
+    fn log(&self, msg: String) {
+        if let Some(tx) = &self.tui_tx {
+            let _ = tx.send(ServerEvent::Log(msg));
+        } else {
+            println!("{}", msg);
+        }
+    }
+
+    fn emit_event(&self, event: ServerEvent) {
+        if let Some(tx) = &self.tui_tx {
+            let _ = tx.send(event);
+        }
     }
 
     /// Starts the main event loop of the server.
@@ -65,7 +85,7 @@ impl Server {
             for event in events.iter() {
                 match event.token() {
                     SERVER_TOKEN => {
-                        while let Ok((mut stream, _)) = listener.accept() {
+                        while let Ok((mut stream, addr)) = listener.accept() {
                             let token = Token(self.next_token);
                             self.next_token += 1;
 
@@ -79,6 +99,9 @@ impl Server {
                             client.buffer_out.extend_from_slice(b"WELCOME\n");
                             self.clients.insert(token, client);
                             self.handle_write(token);
+
+                            self.log(format!("New connection from {}", addr));
+                            self.emit_event(ServerEvent::ClientConnected);
                         }
                     }
                     token => {
@@ -195,11 +218,16 @@ impl Server {
 
         for (token, id) in dead_players {
             self.broadcast_gui(&format!("pdi {}\n", id));
+            let team = self.world.players.get(&id).map(|p| p.team.clone()).unwrap_or_default();
+            self.log(format!("Player {} (Team: {}) starved to death.", id, team));
+            self.emit_event(ServerEvent::PlayerDied(team));
+
             if self.clients.contains_key(&token) {
                 self.handle_write(token);
             }
             self.world.remove_player(id);
             self.clients.remove(&token);
+            self.emit_event(ServerEvent::ClientDisconnected);
         }
 
         let mut world_events = Vec::new();
@@ -212,8 +240,17 @@ impl Server {
 
         if let Some(winning_team) = self.world.check_victory() {
             self.broadcast_gui(&format!("seg {}\n", winning_team));
+            self.log(format!("Game Over! Team {} wins!", winning_team));
+            self.emit_event(ServerEvent::GameOver(winning_team));
             return true;
         }
+
+        let mut positions = Vec::new();
+        for player in self.world.players.values() {
+            positions.push((player.x, player.y));
+        }
+        self.emit_event(ServerEvent::MapSnapshot(positions));
+
         false
     }
 
@@ -239,7 +276,13 @@ impl Server {
     }
 
     fn handle_gui_command(&mut self, token: Token, cmd: GuiCommand) {
-        let responses = crate::gui::commands::execute(cmd, &mut self.world, &mut self.config);
+        let responses = crate::gui::commands::execute(cmd.clone(), &mut self.world, &mut self.config);
+        
+        if let GuiCommand::TimeUpdate(_) = cmd {
+            self.log(format!("GUI modified frequency to {}", self.config.freq));
+            self.emit_event(ServerEvent::FreqChanged(self.config.freq));
+        }
+
         if let Some(client) = self.clients.get_mut(&token) {
             for response in responses {
                 client.buffer_out.extend_from_slice(response.as_bytes());
@@ -278,9 +321,13 @@ impl Server {
         }
 
         if closed {
+            self.log(format!("Client disconnected (Token: {:?})", token));
+            self.emit_event(ServerEvent::ClientDisconnected);
             self.clients.remove(&token);
             if let Some(id) = player_to_remove {
+                let team = self.world.players.get(&id).map(|p| p.team.clone()).unwrap_or_default();
                 self.world.remove_player(id);
+                self.emit_event(ServerEvent::PlayerDied(team));
             }
             return;
         }
@@ -304,6 +351,7 @@ impl Server {
                     ClientState::Authenticating => {
                         if line_str == "GRAPHIC" {
                             client.state = ClientState::Graphic;
+                            self.log(format!("Graphic client connected (Token: {:?})", token));
                         } else if let Some(player_id) = self.world.add_player(&line_str, self.config.freq) {
                             client.state = ClientState::InGame(player_id);
                             client.team_name = Some(line_str.clone());
@@ -320,6 +368,9 @@ impl Server {
                                 crate::game::player::Direction::West => 4,
                             };
                             self.broadcast_gui(&format!("pnw {} {} {} {} {} {}\n", player_id, player.x, player.y, orientation, player.level, player.team));
+                            
+                            self.log(format!("Player {} joined team '{}'", player_id, line_str));
+                            self.emit_event(ServerEvent::PlayerJoinedTeam(line_str.clone()));
                         } else {
                             client.buffer_out.extend_from_slice(b"ko\n");
                         }

@@ -31,6 +31,10 @@ pub struct ServerConfig {
     /// Frequency reciprocal for action execution time (default is 100).
     #[arg(short = 'f', default_value_t = 100)]
     pub freq: u32,
+
+    /// Enable the Ratatui TUI dashboard (bonus feature).
+    #[arg(short = 'b', long = "bonus")]
+    pub bonus: bool,
 }
 
 #[cfg(test)]
