@@ -124,11 +124,17 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
                 (player.x, player.y, player.team.clone())
             };
             
+            let egg_id = world.next_egg_id;
+            world.next_egg_id += 1;
+
             world.eggs.push(crate::game::world::Egg {
+                id: egg_id,
                 x: tx,
                 y: ty,
                 team: team_name,
             });
+
+            world.gui_events.push_back(format!("enw {} {} {} {}\n", egg_id, player_id, tx, ty));
             
             "ok\n".to_string()
         }

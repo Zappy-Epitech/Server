@@ -190,11 +190,20 @@ impl Server {
         }
 
         for (token, id) in dead_players {
+            self.broadcast_gui(&format!("pdi {}\n", id));
             if self.clients.contains_key(&token) {
                 self.handle_write(token);
             }
             self.world.remove_player(id);
             self.clients.remove(&token);
+        }
+
+        let mut world_events = Vec::new();
+        while let Some(event) = self.world.gui_events.pop_front() {
+            world_events.push(event);
+        }
+        for event in world_events {
+            self.broadcast_gui(&event);
         }
     }
 
@@ -292,6 +301,15 @@ impl Server {
                             let egg_slots = self.world.eggs.iter().filter(|e| e.team == line_str).count();
                             let msg = format!("{}\n{} {}\n", initial_slots + egg_slots, self.config.width, self.config.height);
                             client.buffer_out.extend_from_slice(msg.as_bytes());
+                            
+                            let player = self.world.players.get(&player_id).unwrap();
+                            let orientation = match player.direction {
+                                crate::game::player::Direction::North => 1,
+                                crate::game::player::Direction::East => 2,
+                                crate::game::player::Direction::South => 3,
+                                crate::game::player::Direction::West => 4,
+                            };
+                            self.broadcast_gui(&format!("pnw {} {} {} {} {} {}\n", player_id, player.x, player.y, orientation, player.level, player.team));
                         } else {
                             client.buffer_out.extend_from_slice(b"ko\n");
                         }
