@@ -220,12 +220,11 @@ impl Server {
     }
 
     fn handle_gui_command(&mut self, token: Token, cmd: GuiCommand) {
-        let response = match cmd {
-            GuiCommand::MapSize => format!("msz {} {}\n", self.config.width, self.config.height),
-            _ => "suc\n".to_string(),
-        };
+        let responses = crate::gui::commands::execute(cmd, &self.world, &self.config);
         if let Some(client) = self.clients.get_mut(&token) {
-            client.buffer_out.extend_from_slice(response.as_bytes());
+            for response in responses {
+                client.buffer_out.extend_from_slice(response.as_bytes());
+            }
         }
         self.handle_write(token);
     }

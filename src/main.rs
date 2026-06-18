@@ -2,6 +2,7 @@ mod config;
 mod network;
 mod game;
 mod protocol;
+mod gui;
 
 use clap::Parser;
 use config::ServerConfig;
