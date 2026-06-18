@@ -2,6 +2,7 @@ use crate::game::world::{World, Resource};
 use crate::game::player::Direction;
 use crate::protocol::gui::GuiCommand;
 
+/// Executes player-related GUI commands (`ppo`, `plv`, `pin`).
 pub fn execute(command: GuiCommand, world: &World) -> Vec<String> {
     let mut responses = Vec::new();
 
@@ -46,4 +47,34 @@ pub fn execute(command: GuiCommand, world: &World) -> Vec<String> {
     }
 
     responses
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_player_info_commands() {
+        let mut world = World::new(10, 10, vec!["TeamA".to_string()], 5, 100);
+        let player_id = world.add_player("TeamA", 100).unwrap();
+        
+        // ppo
+        let res_ppo = execute(GuiCommand::PlayerPosition(player_id), &world);
+        assert_eq!(res_ppo.len(), 1);
+        assert!(res_ppo[0].starts_with(&format!("ppo {}", player_id)));
+
+        // plv
+        let res_plv = execute(GuiCommand::PlayerLevel(player_id), &world);
+        assert_eq!(res_plv.len(), 1);
+        assert_eq!(res_plv[0], format!("plv {} 1\n", player_id));
+
+        // pin
+        let res_pin = execute(GuiCommand::PlayerInventory(player_id), &world);
+        assert_eq!(res_pin.len(), 1);
+        assert!(res_pin[0].starts_with(&format!("pin {}", player_id)));
+
+        // Invalid player
+        let res_invalid = execute(GuiCommand::PlayerLevel(999), &world);
+        assert_eq!(res_invalid[0], "sbp\n");
+    }
 }
