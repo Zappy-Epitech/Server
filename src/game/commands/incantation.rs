@@ -104,6 +104,15 @@ pub fn handle_start(player_id: usize, world: &mut World) -> Option<String> {
 
     if resource_check && player_count >= req.nb_players {
         active.insert(player_id, Some(level));
+        
+        let mut participants = Vec::new();
+        for player in world.players.values() {
+            if player.x == x && player.y == y && player.level == level {
+                participants.push(player.id.to_string());
+            }
+        }
+        world.gui_events.push_back(format!("pic {} {} {} {}\n", x, y, level, participants.join(" ")));
+
         Some("Elevation underway\n".to_string())
     } else {
         active.insert(player_id, None);
@@ -152,9 +161,11 @@ pub fn execute(player_id: usize, world: &mut World) -> String {
                 p.level = new_level;
             }
         }
+        world.gui_events.push_back(format!("pie {} {} 1\n", x, y));
 
         format!("Current level: {}\n", new_level)
     } else {
+        world.gui_events.push_back(format!("pie {} {} 0\n", x, y));
         "ko\n".to_string()
     }
 }
