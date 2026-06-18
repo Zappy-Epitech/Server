@@ -73,6 +73,18 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
             if let Some(c) = count {
                 if *c > 0 {
                     *c -= 1;
+                    
+                    let resource_id = match resource {
+                        Resource::Food => 0,
+                        Resource::Linemate => 1,
+                        Resource::Deraumere => 2,
+                        Resource::Sibur => 3,
+                        Resource::Mendiane => 4,
+                        Resource::Phiras => 5,
+                        Resource::Thystame => 6,
+                    };
+                    world.gui_events.push_back(format!("pgt {} {}\n", player_id, resource_id));
+
                     let player = world.players.get_mut(&player_id).unwrap();
                     if resource == Resource::Food {
                         player.add_food(world.freq);
@@ -102,6 +114,17 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
             };
 
             if has_resource {
+                let resource_id = match resource {
+                    Resource::Food => 0,
+                    Resource::Linemate => 1,
+                    Resource::Deraumere => 2,
+                    Resource::Sibur => 3,
+                    Resource::Mendiane => 4,
+                    Resource::Phiras => 5,
+                    Resource::Thystame => 6,
+                };
+                world.gui_events.push_back(format!("pdr {} {}\n", player_id, resource_id));
+
                 if resource == Resource::Food {
                     player.remove_food(world.freq);
                 } else {
