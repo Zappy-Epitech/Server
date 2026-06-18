@@ -229,7 +229,7 @@ impl Server {
     }
 
     fn handle_gui_command(&mut self, token: Token, cmd: GuiCommand) {
-        let responses = crate::gui::commands::execute(cmd, &self.world, &self.config);
+        let responses = crate::gui::commands::execute(cmd, &mut self.world, &mut self.config);
         if let Some(client) = self.clients.get_mut(&token) {
             for response in responses {
                 client.buffer_out.extend_from_slice(response.as_bytes());
