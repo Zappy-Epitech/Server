@@ -198,6 +198,21 @@ impl World {
         content.join(" ")
     }
 
+    pub fn check_victory(&self) -> Option<String> {
+        let mut team_counts = HashMap::new();
+        for player in self.players.values() {
+            if player.level >= 8 {
+                *team_counts.entry(player.team.clone()).or_insert(0) += 1;
+            }
+        }
+        for (team, count) in team_counts {
+            if count >= 6 {
+                return Some(team);
+            }
+        }
+        None
+    }
+
     pub fn spawn_resources(&mut self) {
         let mut rng = rand::thread_rng();
         let total_tiles = (self.width * self.height) as f64;
