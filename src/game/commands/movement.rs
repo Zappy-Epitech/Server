@@ -67,6 +67,8 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
                 }
             }
 
+            world.gui_events.push_back(format!("pex {}\n", player_id));
+
             "ok\n".to_string()
         }
         _ => "ko\n".to_string(),

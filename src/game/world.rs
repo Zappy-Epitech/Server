@@ -131,7 +131,7 @@ impl World {
 
         if let Some(pos) = self.eggs.iter().position(|e| e.team == team_name) {
             let egg = self.eggs.remove(pos);
-            self.gui_events.push_back(format!("edi {}\n", egg.id));
+            self.gui_events.push_back(format!("ebo {}\n", egg.id));
             spawn_pos = Some((egg.x, egg.y));
         } else {
             let slots = self.team_slots.get_mut(team_name)?;

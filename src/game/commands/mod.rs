@@ -12,6 +12,10 @@ use crate::game::player::Direction;
 pub fn init(command: &Command, player_id: usize, world: &mut World) -> Option<String> {
     match command {
         Command::Incantation => incantation::handle_start(player_id, world),
+        Command::Fork => {
+            world.gui_events.push_back(format!("pfk {}\n", player_id));
+            None
+        }
         _ => None,
     }
 }

@@ -351,6 +351,7 @@ impl Server {
                     ClientState::Authenticating => {
                         if line_str == "GRAPHIC" {
                             client.state = ClientState::Graphic;
+                            client.buffer_out.extend_from_slice(b"smg Welcome to Zappy Server!\n");
                             self.log(format!("Graphic client connected (Token: {:?})", token));
                         } else if let Some(player_id) = self.world.add_player(&line_str, self.config.freq) {
                             client.state = ClientState::InGame(player_id);
