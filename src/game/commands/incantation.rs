@@ -156,12 +156,18 @@ pub fn execute(player_id: usize, world: &mut World) -> String {
         consume_resources(tile_mut, &req);
 
         let new_level = start_level + 1;
+        let mut participants = Vec::new();
         for p in world.players.values_mut() {
             if p.x == x && p.y == y && p.level == start_level {
                 p.level = new_level;
+                participants.push(p.id);
             }
         }
         world.gui_events.push_back(format!("pie {} {} 1\n", x, y));
+        world.gui_events.push_back(crate::gui::commands::map::format_bct(world, x, y));
+        for pid in participants {
+            world.gui_events.push_back(format!("plv {} {}\n", pid, new_level));
+        }
 
         format!("Current level: {}\n", new_level)
     } else {

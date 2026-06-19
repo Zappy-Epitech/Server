@@ -13,16 +13,25 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
                 Direction::South => player.y = (player.y + 1) % world.height,
                 Direction::West => player.x = if player.x == 0 { world.width - 1 } else { player.x - 1 },
             }
+            let o = match player.direction { Direction::North => 1, Direction::East => 2, Direction::South => 3, Direction::West => 4 };
+            let (x, y) = (player.x, player.y);
+            world.gui_events.push_back(format!("ppo {} {} {} {}\n", player_id, x, y, o));
             "ok\n".to_string()
         }
         Command::Right => {
             let player = world.players.get_mut(&player_id).expect("Player should exist");
             player.direction = player.direction.turn_right();
+            let o = match player.direction { Direction::North => 1, Direction::East => 2, Direction::South => 3, Direction::West => 4 };
+            let (x, y) = (player.x, player.y);
+            world.gui_events.push_back(format!("ppo {} {} {} {}\n", player_id, x, y, o));
             "ok\n".to_string()
         }
         Command::Left => {
             let player = world.players.get_mut(&player_id).expect("Player should exist");
             player.direction = player.direction.turn_left();
+            let o = match player.direction { Direction::North => 1, Direction::East => 2, Direction::South => 3, Direction::West => 4 };
+            let (x, y) = (player.x, player.y);
+            world.gui_events.push_back(format!("ppo {} {} {} {}\n", player_id, x, y, o));
             "ok\n".to_string()
         }
         Command::Eject => {
@@ -64,6 +73,9 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
                         world.width as i32, world.height as i32
                     );
                     target.notifications.push_back(format!("eject {}\n", k));
+                    
+                    let o = match target.direction { Direction::North => 1, Direction::East => 2, Direction::South => 3, Direction::West => 4 };
+                    world.gui_events.push_back(format!("ppo {} {} {} {}\n", target_id, target.x, target.y, o));
                 }
             }
 

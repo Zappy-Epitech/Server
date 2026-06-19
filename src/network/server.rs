@@ -325,6 +325,7 @@ impl Server {
             self.emit_event(ServerEvent::ClientDisconnected);
             self.clients.remove(&token);
             if let Some(id) = player_to_remove {
+                self.broadcast_gui(&format!("pdi {}\n", id));
                 let team = self.world.players.get(&id).map(|p| p.team.clone()).unwrap_or_default();
                 self.world.remove_player(id);
                 self.emit_event(ServerEvent::PlayerDied(team));
@@ -352,6 +353,29 @@ impl Server {
                         if line_str == "GRAPHIC" {
                             client.state = ClientState::Graphic;
                             client.buffer_out.extend_from_slice(b"smg Welcome to Zappy Server!\n");
+                            client.buffer_out.extend_from_slice(format!("msz {} {}\n", self.config.width, self.config.height).as_bytes());
+                            client.buffer_out.extend_from_slice(format!("sgt {}\n", self.config.freq).as_bytes());
+
+                            for y in 0..self.config.height {
+                                for x in 0..self.config.width {
+                                    client.buffer_out.extend_from_slice(crate::gui::commands::map::format_bct(&self.world, x, y).as_bytes());
+                                }
+                            }
+
+                            for team in &self.config.teams {
+                                client.buffer_out.extend_from_slice(format!("tna {}\n", team).as_bytes());
+                            }
+
+                            for p in self.world.players.values() {
+                                let o = match p.direction {
+                                    crate::game::player::Direction::North => 1, crate::game::player::Direction::East => 2,
+                                    crate::game::player::Direction::South => 3, crate::game::player::Direction::West => 4,
+                                };
+                                client.buffer_out.extend_from_slice(format!("pnw {} {} {} {} {} {}\n", p.id, p.x, p.y, o, p.level, p.team).as_bytes());
+                            }
+                            for e in &self.world.eggs {
+                                client.buffer_out.extend_from_slice(format!("enw {} 0 {} {}\n", e.id, e.x, e.y).as_bytes());
+                            }
                             self.log(format!("Graphic client connected (Token: {:?})", token));
                         } else if let Some(player_id) = self.world.add_player(&line_str, self.config.freq) {
                             client.state = ClientState::InGame(player_id);
