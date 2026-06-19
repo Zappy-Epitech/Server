@@ -58,84 +58,94 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
             format!("[ {} ]\n", tiles_content.join(", "))
         }
         Command::Take(obj) => {
-            let resource = if let Some(r) = Resource::from_str(&obj) {
-                r
-            } else {
-                return "ko\n".to_string();
+            let resource = if let Some(r) = Resource::from_str(&obj) { r } else { return "ko\n".to_string(); };
+
+            let (px, py, success) = {
+                let player = world.players.get(&player_id).expect("Player should exist");
+                let (x, y) = (player.x, player.y);
+                let tile = world.get_tile_mut(x, y);
+                let count = tile.resources.get_mut(&resource);
+                if let Some(c) = count {
+                    if *c > 0 {
+                        *c -= 1;
+                        (x, y, true)
+                    } else { (x, y, false) }
+                } else { (x, y, false) }
             };
 
-            let player = world.players.get(&player_id).expect("Player should exist");
-            let (px, py) = (player.x, player.y);
-            
-            let tile = world.get_tile_mut(px, py);
-            let count = tile.resources.get_mut(&resource);
-            
-            if let Some(c) = count {
-                if *c > 0 {
-                    *c -= 1;
-                    
-                    let resource_id = match resource {
-                        Resource::Food => 0,
-                        Resource::Linemate => 1,
-                        Resource::Deraumere => 2,
-                        Resource::Sibur => 3,
-                        Resource::Mendiane => 4,
-                        Resource::Phiras => 5,
-                        Resource::Thystame => 6,
-                    };
-                    world.gui_events.push_back(format!("pgt {} {}\n", player_id, resource_id));
+            if success {
+                let resource_id = match resource {
+                    Resource::Food => 0, Resource::Linemate => 1, Resource::Deraumere => 2,
+                    Resource::Sibur => 3, Resource::Mendiane => 4, Resource::Phiras => 5, Resource::Thystame => 6,
+                };
+                world.gui_events.push_back(format!("pgt {} {}\n", player_id, resource_id));
 
+                {
                     let player = world.players.get_mut(&player_id).unwrap();
                     if resource == Resource::Food {
                         player.add_food(world.freq);
                     } else {
                         *player.inventory.entry(resource).or_insert(0) += 1;
                     }
-                    "ok\n".to_string()
-                } else {
-                    "ko\n".to_string()
+                    let f = player.get_food_count(world.freq);
+                    let l = *player.inventory.get(&Resource::Linemate).unwrap_or(&0);
+                    let d = *player.inventory.get(&Resource::Deraumere).unwrap_or(&0);
+                    let s = *player.inventory.get(&Resource::Sibur).unwrap_or(&0);
+                    let m = *player.inventory.get(&Resource::Mendiane).unwrap_or(&0);
+                    let p = *player.inventory.get(&Resource::Phiras).unwrap_or(&0);
+                    let t = *player.inventory.get(&Resource::Thystame).unwrap_or(&0);
+                    world.gui_events.push_back(format!("pin {} {} {} {} {} {} {} {} {} {}\n", player_id, px, py, f, l, d, s, m, p, t));
                 }
+                world.gui_events.push_back(crate::gui::commands::map::format_bct(world, px, py));
+                "ok\n".to_string()
             } else {
                 "ko\n".to_string()
             }
         }
         Command::Set(obj) => {
-            let resource = if let Some(r) = Resource::from_str(&obj) {
-                r
-            } else {
-                return "ko\n".to_string();
-            };
+            let resource = if let Some(r) = Resource::from_str(&obj) { r } else { return "ko\n".to_string(); };
 
-            let player = world.players.get_mut(&player_id).expect("Player should exist");
-            let has_resource = if resource == Resource::Food {
-                player.get_food_count(world.freq) > 0
-            } else {
-                *player.inventory.get(&resource).unwrap_or(&0) > 0
+            let (px, py, has_resource) = {
+                let player = world.players.get_mut(&player_id).expect("Player should exist");
+                let has = if resource == Resource::Food {
+                    player.get_food_count(world.freq) > 0
+                } else {
+                    *player.inventory.get(&resource).unwrap_or(&0) > 0
+                };
+                (player.x, player.y, has)
             };
 
             if has_resource {
                 let resource_id = match resource {
-                    Resource::Food => 0,
-                    Resource::Linemate => 1,
-                    Resource::Deraumere => 2,
-                    Resource::Sibur => 3,
-                    Resource::Mendiane => 4,
-                    Resource::Phiras => 5,
-                    Resource::Thystame => 6,
+                    Resource::Food => 0, Resource::Linemate => 1, Resource::Deraumere => 2,
+                    Resource::Sibur => 3, Resource::Mendiane => 4, Resource::Phiras => 5, Resource::Thystame => 6,
                 };
                 world.gui_events.push_back(format!("pdr {} {}\n", player_id, resource_id));
 
-                if resource == Resource::Food {
-                    player.remove_food(world.freq);
-                } else {
-                    let count = player.inventory.get_mut(&resource).unwrap();
-                    *count -= 1;
+                {
+                    let player = world.players.get_mut(&player_id).unwrap();
+                    if resource == Resource::Food {
+                        player.remove_food(world.freq);
+                    } else {
+                        let count = player.inventory.get_mut(&resource).unwrap();
+                        *count -= 1;
+                    }
+                    let f = player.get_food_count(world.freq);
+                    let l = *player.inventory.get(&Resource::Linemate).unwrap_or(&0);
+                    let d = *player.inventory.get(&Resource::Deraumere).unwrap_or(&0);
+                    let s = *player.inventory.get(&Resource::Sibur).unwrap_or(&0);
+                    let m = *player.inventory.get(&Resource::Mendiane).unwrap_or(&0);
+                    let p = *player.inventory.get(&Resource::Phiras).unwrap_or(&0);
+                    let t = *player.inventory.get(&Resource::Thystame).unwrap_or(&0);
+                    world.gui_events.push_back(format!("pin {} {} {} {} {} {} {} {} {} {}\n", player_id, px, py, f, l, d, s, m, p, t));
+                }
+
+                {
+                    let tile = world.get_tile_mut(px, py);
+                    *tile.resources.entry(resource).or_insert(0) += 1;
                 }
                 
-                let (px, py) = (player.x, player.y);
-                let tile = world.get_tile_mut(px, py);
-                *tile.resources.entry(resource).or_insert(0) += 1;
-                
+                world.gui_events.push_back(crate::gui::commands::map::format_bct(world, px, py));
                 "ok\n".to_string()
             } else {
                 "ko\n".to_string()
