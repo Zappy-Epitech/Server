@@ -13,7 +13,7 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
         (sender.x, sender.y)
     };
 
-    world.gui_events.push_back(format!("pbc {} {}\n", player_id, text));
+    world.gui_events.push_back(format!("pbc #{} {}\n", player_id, text));
 
     let mut targets = Vec::new();
     for (&id, player) in world.players.iter() {

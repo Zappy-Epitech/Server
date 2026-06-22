@@ -93,6 +93,6 @@ mod tests {
         // Invalid commands
         assert!(GuiCommand::from_str("unknown").is_none());
         assert!(GuiCommand::from_str("bct 5").is_none()); // Missing Y
-        assert!(GuiCommand::from_str("ppo abc").is_none()); // Not a number
+        assert!(GuiCommand::from_str("ppo #abc").is_none()); // Not a number
     }
 }

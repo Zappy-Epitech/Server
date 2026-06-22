@@ -15,7 +15,7 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
             }
             let o = match player.direction { Direction::North => 1, Direction::East => 2, Direction::South => 3, Direction::West => 4 };
             let (x, y) = (player.x, player.y);
-            world.gui_events.push_back(format!("ppo {} {} {} {}\n", player_id, x, y, o));
+            world.gui_events.push_back(format!("ppo #{} {} {} {}\n", player_id, x, y, o));
             "ok\n".to_string()
         }
         Command::Right => {
@@ -23,7 +23,7 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
             player.direction = player.direction.turn_right();
             let o = match player.direction { Direction::North => 1, Direction::East => 2, Direction::South => 3, Direction::West => 4 };
             let (x, y) = (player.x, player.y);
-            world.gui_events.push_back(format!("ppo {} {} {} {}\n", player_id, x, y, o));
+            world.gui_events.push_back(format!("ppo #{} {} {} {}\n", player_id, x, y, o));
             "ok\n".to_string()
         }
         Command::Left => {
@@ -31,7 +31,7 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
             player.direction = player.direction.turn_left();
             let o = match player.direction { Direction::North => 1, Direction::East => 2, Direction::South => 3, Direction::West => 4 };
             let (x, y) = (player.x, player.y);
-            world.gui_events.push_back(format!("ppo {} {} {} {}\n", player_id, x, y, o));
+            world.gui_events.push_back(format!("ppo #{} {} {} {}\n", player_id, x, y, o));
             "ok\n".to_string()
         }
         Command::Eject => {
@@ -75,11 +75,11 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
                     target.notifications.push_back(format!("eject {}\n", k));
                     
                     let o = match target.direction { Direction::North => 1, Direction::East => 2, Direction::South => 3, Direction::West => 4 };
-                    world.gui_events.push_back(format!("ppo {} {} {} {}\n", target_id, target.x, target.y, o));
+                    world.gui_events.push_back(format!("ppo #{} {} {} {}\n", target_id, target.x, target.y, o));
                 }
             }
 
-            world.gui_events.push_back(format!("pex {}\n", player_id));
+            world.gui_events.push_back(format!("pex #{}\n", player_id));
 
             "ok\n".to_string()
         }

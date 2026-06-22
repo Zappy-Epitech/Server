@@ -78,7 +78,7 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
                     Resource::Food => 0, Resource::Linemate => 1, Resource::Deraumere => 2,
                     Resource::Sibur => 3, Resource::Mendiane => 4, Resource::Phiras => 5, Resource::Thystame => 6,
                 };
-                world.gui_events.push_back(format!("pgt {} {}\n", player_id, resource_id));
+                world.gui_events.push_back(format!("pgt #{} {}\n", player_id, resource_id));
 
                 {
                     let player = world.players.get_mut(&player_id).unwrap();
@@ -94,7 +94,7 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
                     let m = *player.inventory.get(&Resource::Mendiane).unwrap_or(&0);
                     let p = *player.inventory.get(&Resource::Phiras).unwrap_or(&0);
                     let t = *player.inventory.get(&Resource::Thystame).unwrap_or(&0);
-                    world.gui_events.push_back(format!("pin {} {} {} {} {} {} {} {} {} {}\n", player_id, px, py, f, l, d, s, m, p, t));
+                    world.gui_events.push_back(format!("pin #{} {} {} {} {} {} {} {} {} {}\n", player_id, px, py, f, l, d, s, m, p, t));
                 }
                 world.gui_events.push_back(crate::gui::commands::map::format_bct(world, px, py));
                 "ok\n".to_string()
@@ -120,7 +120,7 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
                     Resource::Food => 0, Resource::Linemate => 1, Resource::Deraumere => 2,
                     Resource::Sibur => 3, Resource::Mendiane => 4, Resource::Phiras => 5, Resource::Thystame => 6,
                 };
-                world.gui_events.push_back(format!("pdr {} {}\n", player_id, resource_id));
+                world.gui_events.push_back(format!("pdr #{} {}\n", player_id, resource_id));
 
                 {
                     let player = world.players.get_mut(&player_id).unwrap();
@@ -137,7 +137,7 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
                     let m = *player.inventory.get(&Resource::Mendiane).unwrap_or(&0);
                     let p = *player.inventory.get(&Resource::Phiras).unwrap_or(&0);
                     let t = *player.inventory.get(&Resource::Thystame).unwrap_or(&0);
-                    world.gui_events.push_back(format!("pin {} {} {} {} {} {} {} {} {} {}\n", player_id, px, py, f, l, d, s, m, p, t));
+                    world.gui_events.push_back(format!("pin #{} {} {} {} {} {} {} {} {} {}\n", player_id, px, py, f, l, d, s, m, p, t));
                 }
 
                 {
@@ -167,7 +167,7 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
                 team: team_name,
             });
 
-            world.gui_events.push_back(format!("enw {} {} {} {}\n", egg_id, player_id, tx, ty));
+            world.gui_events.push_back(format!("enw #{} #{} {} {}\n", egg_id, player_id, tx, ty));
             
             "ok\n".to_string()
         }

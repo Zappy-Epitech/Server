@@ -217,7 +217,7 @@ impl Server {
         }
 
         for (token, id) in dead_players {
-            self.broadcast_gui(&format!("pdi {}\n", id));
+            self.broadcast_gui(&format!("pdi #{}\n", id));
             let team = self.world.players.get(&id).map(|p| p.team.clone()).unwrap_or_default();
             self.log(format!("Player {} (Team: {}) starved to death.", id, team));
             self.emit_event(ServerEvent::PlayerDied(team));
@@ -325,7 +325,7 @@ impl Server {
             self.emit_event(ServerEvent::ClientDisconnected);
             self.clients.remove(&token);
             if let Some(id) = player_to_remove {
-                self.broadcast_gui(&format!("pdi {}\n", id));
+                self.broadcast_gui(&format!("pdi #{}\n", id));
                 let team = self.world.players.get(&id).map(|p| p.team.clone()).unwrap_or_default();
                 self.world.remove_player(id);
                 self.emit_event(ServerEvent::PlayerDied(team));
@@ -371,10 +371,10 @@ impl Server {
                                     crate::game::player::Direction::North => 1, crate::game::player::Direction::East => 2,
                                     crate::game::player::Direction::South => 3, crate::game::player::Direction::West => 4,
                                 };
-                                client.buffer_out.extend_from_slice(format!("pnw {} {} {} {} {} {}\n", p.id, p.x, p.y, o, p.level, p.team).as_bytes());
+                                client.buffer_out.extend_from_slice(format!("pnw #{} {} {} {} {} {}\n", p.id, p.x, p.y, o, p.level, p.team).as_bytes());
                             }
                             for e in &self.world.eggs {
-                                client.buffer_out.extend_from_slice(format!("enw {} 0 {} {}\n", e.id, e.x, e.y).as_bytes());
+                                client.buffer_out.extend_from_slice(format!("enw #{} #0 {} {}\n", e.id, e.x, e.y).as_bytes());
                             }
                             self.log(format!("Graphic client connected (Token: {:?})", token));
                         } else if let Some(player_id) = self.world.add_player(&line_str, self.config.freq) {
@@ -392,7 +392,7 @@ impl Server {
                                 crate::game::player::Direction::South => 3,
                                 crate::game::player::Direction::West => 4,
                             };
-                            self.broadcast_gui(&format!("pnw {} {} {} {} {} {}\n", player_id, player.x, player.y, orientation, player.level, player.team));
+                            self.broadcast_gui(&format!("pnw #{} {} {} {} {} {}\n", player_id, player.x, player.y, orientation, player.level, player.team));
                             
                             self.log(format!("Player {} joined team '{}'", player_id, line_str));
                             self.emit_event(ServerEvent::PlayerJoinedTeam(line_str.clone()));

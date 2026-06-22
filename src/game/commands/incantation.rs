@@ -111,7 +111,7 @@ pub fn handle_start(player_id: usize, world: &mut World) -> Option<String> {
                 participants.push(player.id.to_string());
             }
         }
-        world.gui_events.push_back(format!("pic {} {} {} {}\n", x, y, level, participants.join(" ")));
+        world.gui_events.push_back(format!("pic {} {} {} #{}\n", x, y, level, participants.join(" #")));
 
         Some("Elevation underway\n".to_string())
     } else {
@@ -166,7 +166,7 @@ pub fn execute(player_id: usize, world: &mut World) -> String {
         world.gui_events.push_back(format!("pie {} {} 1\n", x, y));
         world.gui_events.push_back(crate::gui::commands::map::format_bct(world, x, y));
         for pid in participants {
-            world.gui_events.push_back(format!("plv {} {}\n", pid, new_level));
+            world.gui_events.push_back(format!("plv #{} {}\n", pid, new_level));
         }
 
         format!("Current level: {}\n", new_level)
