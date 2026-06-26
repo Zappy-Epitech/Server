@@ -6,10 +6,10 @@ use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
 use crate::config::ServerConfig;
+use crate::game::world::{Resource, World};
 use crate::network::client::{Client, ClientState};
-use crate::game::world::World;
-use crate::protocol::{Command, PendingCommand};
 use crate::protocol::gui::GuiCommand;
+use crate::protocol::{Command, PendingCommand};
 use crate::tui::ServerEvent;
 use std::sync::mpsc::Sender;
 
@@ -74,7 +74,9 @@ impl Server {
         let addr: SocketAddr = format!("0.0.0.0:{}", self.config.port).parse().unwrap();
         let mut listener = TcpListener::bind(addr)?;
 
-        self.poll.registry().register(&mut listener, SERVER_TOKEN, Interest::READABLE)?;
+        self.poll
+            .registry()
+            .register(&mut listener, SERVER_TOKEN, Interest::READABLE)?;
 
         let mut events = Events::with_capacity(128);
 
@@ -218,7 +220,12 @@ impl Server {
 
         for (token, id) in dead_players {
             self.broadcast_gui(&format!("pdi #{}\n", id));
-            let team = self.world.players.get(&id).map(|p| p.team.clone()).unwrap_or_default();
+            let team = self
+                .world
+                .players
+                .get(&id)
+                .map(|p| p.team.clone())
+                .unwrap_or_default();
             self.log(format!("Player {} (Team: {}) starved to death.", id, team));
             self.emit_event(ServerEvent::PlayerDied(team));
 
@@ -276,8 +283,9 @@ impl Server {
     }
 
     fn handle_gui_command(&mut self, token: Token, cmd: GuiCommand) {
-        let responses = crate::gui::commands::execute(cmd.clone(), &mut self.world, &mut self.config);
-        
+        let responses =
+            crate::gui::commands::execute(cmd.clone(), &mut self.world, &mut self.config);
+
         if let GuiCommand::TimeUpdate(_) = cmd {
             self.log(format!("GUI modified frequency to {}", self.config.freq));
             self.emit_event(ServerEvent::FreqChanged(self.config.freq));
@@ -326,7 +334,12 @@ impl Server {
             self.clients.remove(&token);
             if let Some(id) = player_to_remove {
                 self.broadcast_gui(&format!("pdi #{}\n", id));
-                let team = self.world.players.get(&id).map(|p| p.team.clone()).unwrap_or_default();
+                let team = self
+                    .world
+                    .players
+                    .get(&id)
+                    .map(|p| p.team.clone())
+                    .unwrap_or_default();
                 self.world.remove_player(id);
                 self.emit_event(ServerEvent::PlayerDied(team));
             }
@@ -352,48 +365,120 @@ impl Server {
                     ClientState::Authenticating => {
                         if line_str == "GRAPHIC" {
                             client.state = ClientState::Graphic;
-                            client.buffer_out.extend_from_slice(b"smg Welcome to Zappy Server!\n");
-                            client.buffer_out.extend_from_slice(format!("msz {} {}\n", self.config.width, self.config.height).as_bytes());
-                            client.buffer_out.extend_from_slice(format!("sgt {}\n", self.config.freq).as_bytes());
+                            client
+                                .buffer_out
+                                .extend_from_slice(b"smg Welcome to Zappy Server!\n");
+                            client.buffer_out.extend_from_slice(
+                                format!("msz {} {}\n", self.config.width, self.config.height)
+                                    .as_bytes(),
+                            );
+                            client.buffer_out.extend_from_slice(
+                                format!("sgt {}\n", self.config.freq).as_bytes(),
+                            );
 
                             for y in 0..self.config.height {
                                 for x in 0..self.config.width {
-                                    client.buffer_out.extend_from_slice(crate::gui::commands::map::format_bct(&self.world, x, y).as_bytes());
+                                    client.buffer_out.extend_from_slice(
+                                        crate::gui::commands::map::format_bct(&self.world, x, y)
+                                            .as_bytes(),
+                                    );
                                 }
                             }
 
                             for team in &self.config.teams {
-                                client.buffer_out.extend_from_slice(format!("tna {}\n", team).as_bytes());
+                                client
+                                    .buffer_out
+                                    .extend_from_slice(format!("tna {}\n", team).as_bytes());
                             }
 
-                            for p in self.world.players.values() {
-                                let o = match p.direction {
-                                    crate::game::player::Direction::North => 1, crate::game::player::Direction::East => 2,
-                                    crate::game::player::Direction::South => 3, crate::game::player::Direction::West => 4,
+                            for player in self.world.players.values() {
+                                let o = match player.direction {
+                                    crate::game::player::Direction::North => 1,
+                                    crate::game::player::Direction::East => 2,
+                                    crate::game::player::Direction::South => 3,
+                                    crate::game::player::Direction::West => 4,
                                 };
-                                client.buffer_out.extend_from_slice(format!("pnw #{} {} {} {} {} {}\n", p.id, p.x, p.y, o, p.level, p.team).as_bytes());
+                                client.buffer_out.extend_from_slice(
+                                    format!(
+                                        "pnw #{} {} {} {} {} {}\n",
+                                        player.id, player.x, player.y, o, player.level, player.team
+                                    )
+                                    .as_bytes(),
+                                );
+
+                                let f = player.get_food_count(self.world.freq);
+                                let l = player.inventory.get(&Resource::Linemate).unwrap_or(&0);
+                                let d = player.inventory.get(&Resource::Deraumere).unwrap_or(&0);
+                                let s = player.inventory.get(&Resource::Sibur).unwrap_or(&0);
+                                let m = player.inventory.get(&Resource::Mendiane).unwrap_or(&0);
+                                let p = player.inventory.get(&Resource::Phiras).unwrap_or(&0);
+                                let t = player.inventory.get(&Resource::Thystame).unwrap_or(&0);
+
+                                client.buffer_out.extend_from_slice(
+                                    format!(
+                                        "pin #{} {} {} {} {} {} {} {} {} {}\n",
+                                        player.id, player.x, player.y, f, l, d, s, m, p, t
+                                    )
+                                    .as_bytes(),
+                                );
                             }
                             for e in &self.world.eggs {
-                                client.buffer_out.extend_from_slice(format!("enw #{} #0 {} {}\n", e.id, e.x, e.y).as_bytes());
+                                client.buffer_out.extend_from_slice(
+                                    format!("enw #{} #0 {} {}\n", e.id, e.x, e.y).as_bytes(),
+                                );
                             }
                             self.log(format!("Graphic client connected (Token: {:?})", token));
-                        } else if let Some(player_id) = self.world.add_player(&line_str, self.config.freq) {
+                        } else if let Some(player_id) =
+                            self.world.add_player(&line_str, self.config.freq)
+                        {
                             client.state = ClientState::InGame(player_id);
                             client.team_name = Some(line_str.clone());
                             let initial_slots = *self.world.team_slots.get(&line_str).unwrap_or(&0);
-                            let egg_slots = self.world.eggs.iter().filter(|e| e.team == line_str).count();
-                            let msg = format!("{}\n{} {}\n", initial_slots + egg_slots, self.config.width, self.config.height);
+                            let egg_slots = self
+                                .world
+                                .eggs
+                                .iter()
+                                .filter(|e| e.team == line_str)
+                                .count();
+                            let msg = format!(
+                                "{}\n{} {}\n",
+                                initial_slots + egg_slots,
+                                self.config.width,
+                                self.config.height
+                            );
                             client.buffer_out.extend_from_slice(msg.as_bytes());
-                            
+
                             let player = self.world.players.get(&player_id).unwrap();
+
+                            let f = player.get_food_count(self.world.freq);
+                            let l = player.inventory.get(&Resource::Linemate).unwrap_or(&0);
+                            let d = player.inventory.get(&Resource::Deraumere).unwrap_or(&0);
+                            let s = player.inventory.get(&Resource::Sibur).unwrap_or(&0);
+                            let m = player.inventory.get(&Resource::Mendiane).unwrap_or(&0);
+                            let p = player.inventory.get(&Resource::Phiras).unwrap_or(&0);
+                            let t = player.inventory.get(&Resource::Thystame).unwrap_or(&0);
+
                             let orientation = match player.direction {
                                 crate::game::player::Direction::North => 1,
                                 crate::game::player::Direction::East => 2,
                                 crate::game::player::Direction::South => 3,
                                 crate::game::player::Direction::West => 4,
                             };
-                            self.broadcast_gui(&format!("pnw #{} {} {} {} {} {}\n", player_id, player.x, player.y, orientation, player.level, player.team));
-                            
+
+                            self.world.gui_events.push_back(format!(
+                                "pnw #{} {} {} {} {} {}\n",
+                                player_id,
+                                player.x,
+                                player.y,
+                                orientation,
+                                player.level,
+                                player.team
+                            ));
+                            self.world.gui_events.push_back(format!(
+                                "pin #{} {} {} {} {} {} {} {} {} {}\n",
+                                player_id, player.x, player.y, f, l, d, s, m, p, t
+                            ));
+
                             self.log(format!("Player {} joined team '{}'", player_id, line_str));
                             self.emit_event(ServerEvent::PlayerJoinedTeam(line_str.clone()));
                         } else {
@@ -403,18 +488,25 @@ impl Server {
                     }
                     ClientState::InGame(id) => {
                         if let Some(cmd) = Command::from_str(&line_str) {
-                            if let Some(msg) = crate::game::commands::init(&cmd, id, &mut self.world) {
+                            if let Some(msg) =
+                                crate::game::commands::init(&cmd, id, &mut self.world)
+                            {
                                 client.buffer_out.extend_from_slice(msg.as_bytes());
                                 self.handle_write(token);
                             }
 
                             if let Some(player) = self.world.players.get_mut(&id) {
                                 if player.commands.len() < 10 {
-                                    let duration = Duration::from_secs_f64(cmd.duration() as f64 / self.config.freq as f64);
+                                    let duration = Duration::from_secs_f64(
+                                        cmd.duration() as f64 / self.config.freq as f64,
+                                    );
                                     let start = player.last_command_end.max(Instant::now());
                                     let end = start + duration;
                                     player.last_command_end = end;
-                                    player.commands.push_back(PendingCommand { command: cmd, end_time: end });
+                                    player.commands.push_back(PendingCommand {
+                                        command: cmd,
+                                        end_time: end,
+                                    });
                                 }
                             }
                         } else {
