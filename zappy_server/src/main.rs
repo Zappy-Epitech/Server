@@ -1,3 +1,7 @@
+//! Zappy Server Crate
+//!
+//! Provides the game engine, protocol handling, and application logic for the Zappy server.
+
 mod config;
 mod network;
 mod game;

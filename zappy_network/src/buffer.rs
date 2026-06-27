@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::io::{self, Read, Write};
 
+/// The maximum size of the circular buffer before it overflows and drops the connection.
 pub const MAX_BUFFER_SIZE: usize = 1024 * 1024;
 
 /// A circular buffer implementation to manage network I/O.
@@ -9,6 +10,7 @@ pub struct CircularBuffer {
 }
 
 impl CircularBuffer {
+    /// Creates a new, empty `CircularBuffer`.
     pub fn new() -> Self {
         Self {
             buffer: VecDeque::new(),
@@ -67,6 +69,7 @@ impl CircularBuffer {
         }
     }
 
+    /// Returns `true` if the buffer contains no data.
     pub fn is_empty(&self) -> bool {
         self.buffer.is_empty()
     }

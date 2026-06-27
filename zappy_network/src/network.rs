@@ -9,13 +9,18 @@ use crate::buffer::CircularBuffer;
 
 const SERVER_TOKEN: Token = Token(0);
 
+/// Represents a connected client in the network layer.
 pub struct NetworkClient {
+    /// The underlying TCP stream of the client.
     pub stream: TcpStream,
+    /// The incoming data buffer.
     pub buffer_in: CircularBuffer,
+    /// The outgoing data buffer.
     pub buffer_out: CircularBuffer,
 }
 
 impl NetworkClient {
+    /// Creates a new `NetworkClient` from a raw TCP stream.
     pub fn new(stream: TcpStream) -> Self {
         Self {
             stream,
@@ -25,14 +30,21 @@ impl NetworkClient {
     }
 }
 
+/// Trait implemented by the application layer to react to network events.
 pub trait ServerEventHandler {
+    /// Called when a new client connects.
     fn on_client_connected(&mut self, client_id: usize, network: &mut NetworkServer);
+    /// Called when a client disconnects.
     fn on_client_disconnected(&mut self, client_id: usize, network: &mut NetworkServer);
+    /// Called when a complete message (terminated by \n) is received.
     fn on_message_received(&mut self, client_id: usize, msg: String, network: &mut NetworkServer);
+    /// Called regularly on each tick of the event loop. Returns true to stop the server.
     fn on_tick(&mut self, network: &mut NetworkServer) -> bool;
+    /// Returns the duration until the next game event timeout.
     fn get_next_timeout(&self) -> Duration;
 }
 
+/// The core non-blocking network server using Mio.
 pub struct NetworkServer {
     poll: Poll,
     clients: HashMap<usize, NetworkClient>,
@@ -41,6 +53,7 @@ pub struct NetworkServer {
 }
 
 impl NetworkServer {
+    /// Creates a new `NetworkServer` instance with an initialized polling mechanism.
     pub fn new() -> io::Result<Self> {
         let poll = Poll::new()?;
         Ok(Self {
@@ -51,6 +64,7 @@ impl NetworkServer {
         })
     }
 
+    /// Queues a message to be sent to a specific client.
     pub fn send_message(&mut self, client_id: usize, msg: &[u8]) {
         if let Some(client) = self.clients.get_mut(&client_id) {
             let _ = client.buffer_out.push(msg);
@@ -58,6 +72,7 @@ impl NetworkServer {
         }
     }
 
+    /// Forcibly disconnects a client.
     pub fn disconnect_client(&mut self, client_id: usize) {
         if let Some(mut client) = self.clients.remove(&client_id) {
             let _ = self.poll.registry().deregister(&mut client.stream);
@@ -76,6 +91,7 @@ impl NetworkServer {
     }
 
 
+    /// Starts the main non-blocking event loop.
     pub fn run<H: ServerEventHandler>(&mut self, port: u16, handler: &mut H) -> io::Result<()> {
         let addr: SocketAddr = format!("0.0.0.0:{}", port).parse()
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
