@@ -36,13 +36,14 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
             incantation::execute(player_id, world)
         }
         Command::ConnectNbr => {
-            let team_name = {
-                let player = world.players.get(&player_id).expect("Player should exist");
-                player.team.clone()
-            };
-            let initial_slots = *world.team_slots.get(&team_name).unwrap_or(&0);
-            let egg_slots = world.eggs.iter().filter(|e| e.team == team_name).count();
-            format!("{}\n", initial_slots + egg_slots)
+            if let Some(player) = world.players.get(&player_id) {
+                let team_name = player.team.clone();
+                let initial_slots = *world.team_slots.get(&team_name).unwrap_or(&0);
+                let egg_slots = world.eggs.iter().filter(|e| e.team == team_name).count();
+                format!("{}\n", initial_slots + egg_slots)
+            } else {
+                "0\n".to_string()
+            }
         }
     }
 }

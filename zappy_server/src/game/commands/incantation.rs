@@ -86,7 +86,7 @@ static ACTIVE_INCANTATIONS: LazyLock<Mutex<HashMap<usize, Option<u32>>>> = LazyL
 /// 
 /// Returns `Some("Elevation underway\n")` or `Some("ko\n")`.
 pub fn handle_start(player_id: usize, world: &mut World) -> Option<String> {
-    let mut active = ACTIVE_INCANTATIONS.lock().unwrap();
+    let mut active = ACTIVE_INCANTATIONS.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
 
     let (x, y, level) = match world.players.get(&player_id) {
         Some(p) => (p.x, p.y, p.level),
@@ -123,7 +123,7 @@ pub fn handle_start(player_id: usize, world: &mut World) -> Option<String> {
 /// Executes the final logic of an incantation ritual after the time delay.
 pub fn execute(player_id: usize, world: &mut World) -> String {
     let level_at_start = {
-        let mut active = ACTIVE_INCANTATIONS.lock().unwrap();
+        let mut active = ACTIVE_INCANTATIONS.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         active.remove(&player_id)
     };
 

@@ -56,7 +56,7 @@ mod tests {
     #[test]
     fn test_player_info_commands() {
         let mut world = World::new(10, 10, vec!["TeamA".to_string()], 5, 100);
-        let player_id = world.add_player("TeamA", 100).unwrap();
+        let player_id = world.add_player("TeamA", 100).expect("Could not add player in test");
         
         // ppo
         let res_ppo = execute(GuiCommand::PlayerPosition(player_id), &world);

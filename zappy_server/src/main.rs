@@ -1,3 +1,7 @@
+//! Zappy Server Crate
+//!
+//! Provides the game engine, protocol handling, and application logic for the Zappy server.
+
 mod config;
 mod network;
 mod game;
@@ -12,10 +16,11 @@ use std::io;
 
 fn main() -> io::Result<()> {
     let config = ServerConfig::parse();
+    config.validate();
 
     if config.bonus {
         let (tx, rx) = std::sync::mpsc::channel();
-        let mut server = Server::new(config.clone(), Some(tx))?;
+        let mut server = Server::new(config.clone(), Some(tx));
         
         std::thread::spawn(move || {
             let _ = server.run();
@@ -24,7 +29,7 @@ fn main() -> io::Result<()> {
         return tui::app::run(rx, &config);
     }
 
-    let mut server = Server::new(config, None)?;
+    let mut server = Server::new(config, None);
     server.run()
 }
 

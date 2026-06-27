@@ -80,8 +80,7 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
                 };
                 world.gui_events.push_back(format!("pgt #{} {}\n", player_id, resource_id));
 
-                {
-                    let player = world.players.get_mut(&player_id).unwrap();
+                if let Some(player) = world.players.get_mut(&player_id) {
                     if resource == Resource::Food {
                         player.add_food(world.freq);
                     } else {
@@ -107,13 +106,16 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
             let resource = if let Some(r) = Resource::from_str(&obj) { r } else { return "ko\n".to_string(); };
 
             let (px, py, has_resource) = {
-                let player = world.players.get_mut(&player_id).expect("Player should exist");
-                let has = if resource == Resource::Food {
-                    player.get_food_count(world.freq) > 0
+                if let Some(player) = world.players.get_mut(&player_id) {
+                    let has = if resource == Resource::Food {
+                        player.get_food_count(world.freq) > 0
+                    } else {
+                        *player.inventory.get(&resource).unwrap_or(&0) > 0
+                    };
+                    (player.x, player.y, has)
                 } else {
-                    *player.inventory.get(&resource).unwrap_or(&0) > 0
-                };
-                (player.x, player.y, has)
+                    return "ko\n".to_string();
+                }
             };
 
             if has_resource {
@@ -123,13 +125,11 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
                 };
                 world.gui_events.push_back(format!("pdr #{} {}\n", player_id, resource_id));
 
-                {
-                    let player = world.players.get_mut(&player_id).unwrap();
+                if let Some(player) = world.players.get_mut(&player_id) {
                     if resource == Resource::Food {
                         player.remove_food(world.freq);
-                    } else {
-                        let count = player.inventory.get_mut(&resource).unwrap();
-                        *count -= 1;
+                    } else if let Some(count) = player.inventory.get_mut(&resource) {
+                        if *count > 0 { *count -= 1; }
                     }
                     let f = player.get_food_count(world.freq);
                     let l = *player.inventory.get(&Resource::Linemate).unwrap_or(&0);
