@@ -83,6 +83,7 @@ pub struct Egg {
     pub x: u32,
     pub y: u32,
     pub team: String,
+    pub death_time: Instant,
 }
 
 pub struct World {

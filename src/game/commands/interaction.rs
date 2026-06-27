@@ -160,11 +160,13 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
             let egg_id = world.next_egg_id;
             world.next_egg_id += 1;
 
+            let life_duration = std::time::Duration::from_secs_f64(1260.0 / world.freq as f64);
             world.eggs.push(crate::game::world::Egg {
                 id: egg_id,
                 x: tx,
                 y: ty,
                 team: team_name,
+                death_time: std::time::Instant::now() + life_duration,
             });
 
             world.gui_events.push_back(format!("enw #{} #{} {} {}\n", egg_id, player_id, tx, ty));
