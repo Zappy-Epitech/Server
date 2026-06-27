@@ -56,6 +56,8 @@ pub struct Player {
     pub last_command_end: Instant,
     /// Precise moment of death due to hunger.
     pub death_time: Instant,
+    /// Last recorded food count for GUI updates.
+    pub last_food_count: u32,
     /// Queue of unsolicited messages to be sent to the client.
     pub notifications: VecDeque<String>,
 }
@@ -81,6 +83,7 @@ impl Player {
             commands: VecDeque::new(),
             last_command_end: now,
             death_time: now + life_duration,
+            last_food_count: 10,
             notifications: VecDeque::new(),
         }
     }
