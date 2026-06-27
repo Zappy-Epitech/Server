@@ -685,6 +685,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed94fce61571a4006852b7389a063ab983c02eb1bb37b47f8272ce92d06d9538"
 
 [[package]]
+name = "zappy_network"
+version = "0.1.0"
+dependencies = [
+ "mio 1.2.1",
+]
+
+[[package]]
 name = "zappy_server"
 version = "0.1.0"
 dependencies = [
@@ -693,6 +700,7 @@ dependencies = [
  "mio 1.2.1",
  "rand",
  "ratatui",
+ "zappy_network",
 ]
 
 [[package]]
