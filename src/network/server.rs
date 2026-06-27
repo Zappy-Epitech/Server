@@ -208,6 +208,21 @@ impl Server {
                         continue;
                     }
 
+                    let current_food = player.get_food_count(self.world.freq);
+                    if current_food != player.last_food_count {
+                        player.last_food_count = current_food;
+                        let l = *player.inventory.get(&Resource::Linemate).unwrap_or(&0);
+                        let d = *player.inventory.get(&Resource::Deraumere).unwrap_or(&0);
+                        let s = *player.inventory.get(&Resource::Sibur).unwrap_or(&0);
+                        let m = *player.inventory.get(&Resource::Mendiane).unwrap_or(&0);
+                        let p = *player.inventory.get(&Resource::Phiras).unwrap_or(&0);
+                        let t = *player.inventory.get(&Resource::Thystame).unwrap_or(&0);
+                        self.world.gui_events.push_back(format!(
+                            "pin #{} {} {} {} {} {} {} {} {} {}\n",
+                            id, player.x, player.y, current_food, l, d, s, m, p, t
+                        ));
+                    }
+
                     while let Some(cmd) = player.commands.front() {
                         if now >= cmd.end_time {
                             let pending = player.commands.pop_front().unwrap();

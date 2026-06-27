@@ -94,6 +94,7 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
                     let m = *player.inventory.get(&Resource::Mendiane).unwrap_or(&0);
                     let p = *player.inventory.get(&Resource::Phiras).unwrap_or(&0);
                     let t = *player.inventory.get(&Resource::Thystame).unwrap_or(&0);
+                    player.last_food_count = f;
                     world.gui_events.push_back(format!("pin #{} {} {} {} {} {} {} {} {} {}\n", player_id, px, py, f, l, d, s, m, p, t));
                 }
                 world.gui_events.push_back(crate::gui::commands::map::format_bct(world, px, py));
@@ -137,6 +138,7 @@ pub fn execute(command: Command, player_id: usize, world: &mut World) -> String 
                     let m = *player.inventory.get(&Resource::Mendiane).unwrap_or(&0);
                     let p = *player.inventory.get(&Resource::Phiras).unwrap_or(&0);
                     let t = *player.inventory.get(&Resource::Thystame).unwrap_or(&0);
+                    player.last_food_count = f;
                     world.gui_events.push_back(format!("pin #{} {} {} {} {} {} {} {} {} {}\n", player_id, px, py, f, l, d, s, m, p, t));
                 }
 
