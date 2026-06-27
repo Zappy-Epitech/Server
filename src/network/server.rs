@@ -173,6 +173,12 @@ impl Server {
             }
         }
 
+        for egg in &self.world.eggs {
+            if egg.death_time < min_time {
+                min_time = egg.death_time;
+            }
+        }
+
         if self.world.next_spawn_time < min_time {
             min_time = self.world.next_spawn_time;
         }
@@ -235,6 +241,20 @@ impl Server {
             self.world.remove_player(id);
             self.clients.remove(&token);
             self.emit_event(ServerEvent::ClientDisconnected);
+        }
+
+        let mut dead_eggs = Vec::new();
+        let mut i = 0;
+        while i < self.world.eggs.len() {
+            if now >= self.world.eggs[i].death_time {
+                let dead_egg = self.world.eggs.remove(i);
+                dead_eggs.push(dead_egg.id);
+            } else {
+                i += 1;
+            }
+        }
+        for egg_id in dead_eggs {
+            self.broadcast_gui(&format!("edi #{}\n", egg_id));
         }
 
         let mut world_events = Vec::new();
