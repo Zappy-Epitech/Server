@@ -1,3 +1,11 @@
+//! Interaction commands: `Inventory`, `Look`, `Take`, `Set` and `Fork`.
+//!
+//! Covers the player's interaction with tiles and its own state: reporting the
+//! inventory, building the level-sized `Look` vision pyramid (widening one row
+//! per elevation level), picking up and dropping resources, and laying an
+//! [`Egg`](crate::game::world::Egg) via `Fork`. Resource transfers emit the
+//! matching `pgt`/`pdr`/`pin`/`bct`/`enw` GUI events.
+
 use crate::game::world::{World, Resource};
 use crate::game::player::Direction;
 use crate::protocol::Command;

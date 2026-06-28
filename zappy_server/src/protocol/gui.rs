@@ -1,3 +1,10 @@
+//! Graphic (GUI) client protocol.
+//!
+//! Defines [`GuiCommand`], the set of requests a graphic observer can issue
+//! (map size/content, tile content, team names, player position/level/inventory
+//! and time-frequency get/set), together with its string
+//! [parsing](GuiCommand::from_str).
+
 /// Represents the various commands sent by a graphical client (GUI).
 #[derive(Debug, Clone)]
 pub enum GuiCommand {

@@ -1,3 +1,11 @@
+//! Social commands: `Broadcast`.
+//!
+//! Sends a text message to every other player, tagging each recipient with the
+//! relative tile (1-8) the sound came from. Direction is computed with the
+//! toroidal minimum-image convention via
+//! [`compute_direction`](crate::game::commands::compute_direction), and the
+//! sender is announced to GUIs with a `pbc` event.
+
 use crate::game::world::World;
 use crate::protocol::Command;
 

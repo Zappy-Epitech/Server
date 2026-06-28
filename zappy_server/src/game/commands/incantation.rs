@@ -1,3 +1,12 @@
+//! The elevation ritual (`Incantation`).
+//!
+//! A two-phase command: [`handle_start`] validates, at the 300 time-unit delay's
+//! start, that the tile holds the required stones and enough same-level players,
+//! replying `Elevation underway` or `ko`. [`execute`] re-checks once the delay
+//! elapses and, on success, consumes the stones and raises every participant one
+//! level. In-flight rituals are tracked in a process-wide table keyed by the
+//! initiating player id.
+
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::sync::LazyLock;

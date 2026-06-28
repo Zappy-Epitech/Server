@@ -1,3 +1,11 @@
+//! Ratatui terminal dashboard event loop and rendering.
+//!
+//! Drains [`ServerEvent`]s from the server thread into an internal `TuiState`,
+//! then draws a two-tab interface (global dashboard with logs, metrics and team
+//! ladder, plus a live Trantor minimap) using `ratatui` over a `crossterm`
+//! backend. [`run`] is the entry point used in `--bonus` mode and owns terminal
+//! setup and teardown.
+
 use std::io;
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
@@ -31,6 +39,9 @@ struct TuiState {
     player_positions: Vec<(u32, u32)>,
 }
 
+/// Runs the TUI dashboard, consuming [`ServerEvent`]s from `rx` until the user
+/// quits with `q`. Enters the alternate screen / raw mode on start and restores
+/// the terminal on exit. This is the main-thread entry point for `--bonus` mode.
 pub fn run(rx: Receiver<ServerEvent>, config: &ServerConfig) -> io::Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();

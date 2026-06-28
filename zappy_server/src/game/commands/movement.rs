@@ -1,3 +1,10 @@
+//! Movement commands: `Forward`, `Right`, `Left` and `Eject`.
+//!
+//! Implements position and facing changes with toroidal wrap-around, emitting
+//! the corresponding `ppo`/`pex` GUI events. `Eject` pushes every other player
+//! sharing the tile one step in the ejector's facing and notifies each with the
+//! direction they were pushed from.
+
 use crate::game::world::World;
 use crate::protocol::Command;
 use crate::game::player::Direction;

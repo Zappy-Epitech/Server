@@ -1,8 +1,17 @@
+//! The game world: the toroidal Trantor map and all its state.
+//!
+//! Holds the [`World`] aggregate — the grid of [`Tile`]s (indexed `x + y*width`
+//! with wrap-around), the live [`Player`]s, the pending [`Egg`]s, per-team
+//! spawn slots and the queue of GUI events to broadcast. It also owns the
+//! [`Resource`] kinds with their spawn densities, periodic resource respawning,
+//! player add/remove, tile access helpers and the team victory check.
+
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use rand::Rng;
 use crate::game::player::{Player, Direction};
 
+/// A resource (food and the six elevation stones) that can lie on a tile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Resource {
     Food,
@@ -15,6 +24,7 @@ pub enum Resource {
 }
 
 impl Resource {
+    /// Returns a slice of every resource variant, in canonical order.
     pub fn all() -> &'static [Resource] {
         &[
             Resource::Food,
@@ -27,6 +37,7 @@ impl Resource {
         ]
     }
 
+    /// Parses a resource from its lowercase protocol name, or `None` if unknown.
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "food" => Some(Resource::Food),
@@ -40,6 +51,7 @@ impl Resource {
         }
     }
 
+    /// Returns the lowercase protocol name of this resource.
     pub fn to_str(self) -> &'static str {
         match self {
             Resource::Food => "food",
@@ -52,6 +64,8 @@ impl Resource {
         }
     }
 
+    /// Target density of this resource per tile, used to size the global pool
+    /// kept alive on the map by [`World::spawn_resources`].
     pub fn density(self) -> f64 {
         match self {
             Resource::Food => 0.5,
@@ -65,12 +79,15 @@ impl Resource {
     }
 }
 
+/// A single map cell, holding the quantity of each resource present on it.
 #[derive(Debug, Clone)]
 pub struct Tile {
+    /// Count of each resource currently lying on this tile.
     pub resources: HashMap<Resource, u32>,
 }
 
 impl Tile {
+    /// Creates an empty tile with no resources.
     pub fn new() -> Self {
         Self {
             resources: HashMap::new(),
@@ -78,29 +95,50 @@ impl Tile {
     }
 }
 
+/// An egg laid by a `Fork`; hatches into a new player slot until it expires.
 pub struct Egg {
+    /// Unique egg identifier (used in `enw`/`ebo`/`edi` GUI events).
     pub id: usize,
+    /// X position of the egg on the map.
     pub x: u32,
+    /// Y position of the egg on the map.
     pub y: u32,
+    /// Team the egg belongs to; only that team can hatch from it.
     pub team: String,
+    /// Instant at which the egg expires if not yet hatched.
     pub death_time: Instant,
 }
 
+/// The complete authoritative game state for one running server.
 pub struct World {
+    /// Map width in tiles.
     pub width: u32,
+    /// Map height in tiles.
     pub height: u32,
+    /// Flat row-major tile grid, indexed `x + y * width` with toroidal wrap.
     pub tiles: Vec<Tile>,
+    /// All connected players, keyed by player id.
     pub players: HashMap<usize, Player>,
+    /// Remaining initial connection slots per team name.
     pub team_slots: HashMap<String, usize>,
+    /// Live (unhatched) eggs on the map.
     pub eggs: Vec<Egg>,
+    /// Current time-unit frequency; higher means faster game time.
     pub freq: u32,
+    /// Instant at which resources are next replenished.
     pub next_spawn_time: Instant,
+    /// Queue of GUI protocol lines awaiting broadcast to graphic clients.
     pub gui_events: std::collections::VecDeque<String>,
+    /// Monotonic counter for assigning the next player id.
     next_player_id: usize,
+    /// Monotonic counter for assigning the next egg id.
     pub next_egg_id: usize,
 }
 
 impl World {
+    /// Builds a new world of `width`x`height`, seeds team slots from
+    /// `clients_per_team`, schedules the first resource respawn (scaled by
+    /// `freq`) and spawns the initial resource pool.
     pub fn new(width: u32, height: u32, teams: Vec<String>, clients_per_team: usize, freq: u32) -> Self {
         let mut team_slots = HashMap::new();
         for team in teams {
@@ -127,6 +165,10 @@ impl World {
         world
     }
 
+    /// Adds a player to `team_name`, returning its new id, or `None` if the team
+    /// is full. The player hatches at an existing egg of the team if one exists
+    /// (consuming it), otherwise it consumes a free team slot and spawns at a
+    /// random position with a random facing.
     pub fn add_player(&mut self, team_name: &str, freq: u32) -> Option<usize> {
         let mut spawn_pos = None;
 
@@ -160,6 +202,7 @@ impl World {
         Some(id)
     }
 
+    /// Removes a player and returns its connection slot to its team's pool.
     pub fn remove_player(&mut self, player_id: usize) {
         if let Some(player) = self.players.remove(&player_id) {
             if let Some(slots) = self.team_slots.get_mut(&player.team) {
@@ -168,16 +211,21 @@ impl World {
         }
     }
 
+    /// Returns a shared reference to the tile at `(x, y)`.
     pub fn get_tile(&self, x: u32, y: u32) -> &Tile {
         let idx = (y * self.width + x) as usize;
         &self.tiles[idx]
     }
 
+    /// Returns a mutable reference to the tile at `(x, y)`.
     pub fn get_tile_mut(&mut self, x: u32, y: u32) -> &mut Tile {
         let idx = (y * self.width + x) as usize;
         &mut self.tiles[idx]
     }
 
+    /// Returns the space-separated `Look`-style contents of a tile: one
+    /// `player` token per player standing on it, then one token per resource
+    /// unit present.
     pub fn get_tile_content(&self, x: u32, y: u32) -> String {
         let mut content = Vec::new();
         
@@ -199,6 +247,8 @@ impl World {
         content.join(" ")
     }
 
+    /// Returns the winning team's name if any team has at least six players who
+    /// have reached the maximum level (8), otherwise `None`.
     pub fn check_victory(&self) -> Option<String> {
         let mut team_counts = HashMap::new();
         for player in self.players.values() {
@@ -214,6 +264,8 @@ impl World {
         None
     }
 
+    /// Tops up the map so that each resource's total count reaches its
+    /// density-derived target, scattering any shortfall onto random tiles.
     pub fn spawn_resources(&mut self) {
         let mut rng = rand::thread_rng();
         let total_tiles = (self.width * self.height) as f64;

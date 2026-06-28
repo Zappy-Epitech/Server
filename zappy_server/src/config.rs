@@ -1,3 +1,10 @@
+//! Command-line configuration.
+//!
+//! Defines [`ServerConfig`], the `clap`-derived struct that maps CLI arguments
+//! (port, map size, team names, clients-per-team, frequency, `--bonus`) into the
+//! parameters used to build the [`World`](crate::game::world::World) and run the
+//! server, along with [`ServerConfig::validate`] for sanity-checking them.
+
 use clap::Parser;
 
 /// Configuration structure for the Zappy server.
@@ -38,6 +45,9 @@ pub struct ServerConfig {
 }
 
 impl ServerConfig {
+    /// Validates the parsed arguments, printing every offending parameter and
+    /// exiting the process with status code `84` if any are invalid (zero map
+    /// dimensions, zero clients/frequency, or no team names).
     pub fn validate(&self) {
         let mut errors = Vec::new();
         if self.width == 0 {

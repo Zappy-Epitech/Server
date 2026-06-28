@@ -1,3 +1,12 @@
+//! AI command dispatch and shared geometry.
+//!
+//! Two-phase command handling: [`init`] runs the immediate part of a command the
+//! moment it is received (e.g. starting an incantation), while [`execute`] runs
+//! the deferred effect once the command's time delay has elapsed, routing to the
+//! [`movement`], [`interaction`], [`social`] and [`incantation`] submodules. Also
+//! provides [`compute_direction`], the toroidal minimum-image direction used by
+//! `Broadcast` and `Eject`.
+
 pub mod movement;
 pub mod interaction;
 pub mod social;

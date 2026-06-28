@@ -1,3 +1,11 @@
+//! Time-related GUI commands: `sgt`, `sst`.
+//!
+//! Reports (`sgt`) and updates (`sst`) the server's time-unit frequency. Because
+//! all timers are stored as absolute [`Instant`]s, changing the frequency
+//! rescales every in-flight deadline (player death, queued commands and the next
+//! resource respawn) by the old/new frequency ratio so the perceived remaining
+//! game time is preserved.
+
 use crate::game::world::World;
 use crate::config::ServerConfig;
 use crate::protocol::gui::GuiCommand;

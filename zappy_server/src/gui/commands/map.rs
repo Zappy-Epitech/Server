@@ -1,3 +1,10 @@
+//! Map-related GUI commands: `msz`, `bct`, `mct`, `tna`.
+//!
+//! Answers graphic-client queries about the world layout — map size, single or
+//! full tile contents, and team names — and exposes [`format_bct`], the shared
+//! helper that serializes a tile's resources into a `bct` line (also reused
+//! across the engine whenever a tile changes).
+
 use crate::game::world::{World, Resource};
 use crate::config::ServerConfig;
 use crate::protocol::gui::GuiCommand;

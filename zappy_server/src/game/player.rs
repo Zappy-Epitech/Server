@@ -1,3 +1,11 @@
+//! Player (Trantorian drone) state and lifecycle.
+//!
+//! Defines [`Direction`] and [`Player`]: a drone's position, facing, elevation
+//! level, stone inventory, queued [`PendingCommand`]s
+//! and outgoing notifications. Hunger is modeled time-based: food is converted
+//! into a `death_time` deadline, and helpers translate between food units and
+//! remaining lifespan (scaled by the server `freq`).
+
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 use crate::game::world::Resource;

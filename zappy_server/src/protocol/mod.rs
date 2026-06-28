@@ -1,3 +1,11 @@
+//! AI client protocol.
+//!
+//! Defines the [`Command`] enum for every action an AI drone can request, its
+//! string [parsing](Command::from_str) and base time-unit [`duration`](Command::duration),
+//! and [`PendingCommand`], a command paired with the [`Instant`] at which its
+//! delayed execution completes. The [`gui`] submodule holds the parallel
+//! graphic-client protocol.
+
 pub mod gui;
 
 use std::time::Instant;

@@ -1,3 +1,10 @@
+//! GUI command dispatch.
+//!
+//! Provides [`execute`], which routes a parsed
+//! [`GuiCommand`] to the [`map`], [`player`]
+//! or [`time`] handler and returns the response lines to send back to the
+//! requesting graphic client.
+
 pub mod map;
 pub mod player;
 pub mod time;

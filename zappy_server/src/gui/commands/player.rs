@@ -1,3 +1,9 @@
+//! Player-related GUI commands: `ppo`, `plv`, `pin`.
+//!
+//! Answers graphic-client queries about a specific player — position and
+//! orientation, elevation level, and inventory — replying `sbp` when the
+//! requested player id does not exist.
+
 use crate::game::world::{World, Resource};
 use crate::game::player::Direction;
 use crate::protocol::gui::GuiCommand;

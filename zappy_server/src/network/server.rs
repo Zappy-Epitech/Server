@@ -1,3 +1,16 @@
+//! The application-side server: the bridge between networking and the game.
+//!
+//! [`Server`] owns the [`World`] and the per-connection [`ClientState`] map and
+//! implements [`ServerEventHandler`] so the [`zappy_network`] event loop drives
+//! it. New clients start [`Authenticating`](ClientState::Authenticating) and
+//! become either an [`InGame`](ClientState::InGame) AI drone (sending a team
+//! name) or a [`Graphic`](ClientState::Graphic) observer (sending `GRAPHIC`).
+//! AI commands are parsed, initiated and queued as time-delayed
+//! [`PendingCommand`]s; GUI commands are answered immediately. Each `on_tick`
+//! advances time: respawning resources, applying hunger and death, running due
+//! commands, expiring eggs, flushing GUI events and notifications, and checking
+//! for victory.
+
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
@@ -21,14 +34,21 @@ pub enum ClientState {
     Graphic,
 }
 
+/// The Zappy application server: holds game state and bridges it to the network.
 pub struct Server {
+    /// Runtime configuration (port, map size, teams, frequency, ...).
     pub config: ServerConfig,
+    /// The authoritative game world.
     pub world: World,
+    /// Optional channel to the TUI dashboard; `None` outside `--bonus` mode.
     pub tui_tx: Option<Sender<ServerEvent>>,
+    /// Connection state of each client, keyed by network client id.
     pub client_states: HashMap<usize, ClientState>,
 }
 
 impl Server {
+    /// Creates a server, building the [`World`] from `config`. Pass `Some(tx)`
+    /// to forward [`ServerEvent`]s to a TUI, or `None` to log to stdout.
     pub fn new(config: ServerConfig, tui_tx: Option<Sender<ServerEvent>>) -> Self {
         let world = World::new(
             config.width,
@@ -46,6 +66,8 @@ impl Server {
         }
     }
 
+    /// Creates the underlying [`NetworkServer`] and runs the blocking event loop
+    /// on the configured port until the game ends or a fatal I/O error occurs.
     pub fn run(&mut self) -> std::io::Result<()> {
         let mut network = NetworkServer::new()?;
         let port = self.config.port;
@@ -66,6 +88,7 @@ impl Server {
         }
     }
 
+    /// Sends `msg` to every connected graphic (GUI) client.
     pub fn broadcast_gui(&mut self, msg: &str, network: &mut NetworkServer) {
         for (client_id, state) in &self.client_states {
             if let ClientState::Graphic = state {
